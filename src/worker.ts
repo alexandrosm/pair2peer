@@ -1,14 +1,15 @@
 /// <reference lib="webworker" />
 declare const self: ServiceWorkerGlobalScope;
 
-const CACHE_NAME = 'pair2peer-v1';
+const CACHE_NAME = 'pair2peer-v2';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/app.js',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  '/pair2peer/',
+  '/pair2peer/index.html',
+  '/pair2peer/main.js',
+  '/pair2peer/main.css',
+  '/pair2peer/manifest.json',
+  '/pair2peer/icon-192.png',
+  '/pair2peer/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -34,26 +35,26 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('cdn.tailwindcss.com') || 
-      event.request.url.includes('esm.sh')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-          return response;
-        })
-        .catch(() => caches.match(event.request).then(r => r || new Response('Offline', { status: 503 })))
-    );
-    return;
-  }
-
   event.respondWith(
     caches.match(event.request)
-      .then((response) => response || fetch(event.request))
-      .then((response) => response || new Response('Not found', { status: 404 }))
+      .then((response) => {
+        if (response) {
+          return response;
+        }
+        return fetch(event.request).then((response) => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+          
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+          
+          return response;
+        });
+      })
+      .catch(() => new Response('Offline', { status: 503 }))
   );
 });
 
