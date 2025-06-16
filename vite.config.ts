@@ -1,14 +1,15 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'path';
 
 export default defineConfig({
   root: '.',
+  base: '/pair2peer/',
   build: {
     outDir: 'dist',
     rollupOptions: {
       input: {
-        main: 'index.html',
-        app: 'src/app.ts',
-        worker: 'src/worker.ts'
+        main: resolve(__dirname, 'index.html'),
+        worker: resolve(__dirname, 'src/worker.ts')
       },
       output: {
         entryFileNames: '[name].js',
@@ -27,5 +28,6 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true
-  }
+  },
+  publicDir: 'public'
 });

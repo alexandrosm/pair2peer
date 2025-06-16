@@ -5,29 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pair2Peer - Direct Device Pairing</title>
     <meta name="description" content="Direct device pairing without servers">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1e40af">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .qr-overlay {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .scan-line {
-            position: absolute;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
-            animation: scan 2s infinite;
-        }
-        @keyframes scan {
-            0% { transform: translateY(-100px); }
-            100% { transform: translateY(100px); }
-        }
-    </style>
+    <link rel="stylesheet" href="/src/style.css">
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <div id="app" class="w-full max-w-md">
@@ -129,7 +109,7 @@
 
     <script type="module">
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/worker.js');
+            navigator.serviceWorker.register('./worker.js');
         }
     </script>
     <script type="module" src="/src/app.ts"></script>
