@@ -4,7 +4,7 @@
 export interface BluetoothTransport {
   startAdvertising(payload: string): Promise<void>;
   scanForPeers(): Promise<string[]>;
-  connect(deviceId: string): Promise<BluetoothRemoteGATTServer>;
+  connect(deviceId: string): Promise<any>;
   disconnect(): Promise<void>;
 }
 

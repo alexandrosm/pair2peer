@@ -1,5 +1,5 @@
 import type { P2PQRHeader } from './types.js';
-import { createAnswerPeer, computeSdpFingerprint } from './webrtc.js';
+import { createAnswerPeer } from './webrtc.js';
 import { createQRChunks } from './qr.js';
 
 export async function createAnswerFlow(

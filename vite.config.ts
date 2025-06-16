@@ -1,5 +1,4 @@
 import { defineConfig } from 'vite';
-import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   root: '.',
@@ -25,16 +24,6 @@ export default defineConfig({
       }
     }
   },
-  plugins: [
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['icon-192.png', 'icon-512.png'],
-      manifest: false,
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
-      }
-    })
-  ],
   server: {
     port: 3000,
     open: true

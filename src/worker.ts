@@ -45,7 +45,7 @@ self.addEventListener('fetch', (event) => {
           });
           return response;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request).then(r => r || new Response('Offline', { status: 503 })))
     );
     return;
   }
@@ -53,6 +53,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
       .then((response) => response || fetch(event.request))
+      .then((response) => response || new Response('Not found', { status: 404 }))
   );
 });
 

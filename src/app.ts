@@ -1,7 +1,6 @@
-import type { AppContext, AppState, DataChannelMessage, P2PQRHeader } from './types.js';
+import type { AppContext, AppState, DataChannelMessage, P2PQRHeader, AckMessage, TrickleMessage } from './types.js';
 import { 
   createOfferPeer, 
-  createAnswerPeer, 
   waitForDataChannel,
   extractTurnFromHeader,
   computeSdpFingerprint
@@ -199,7 +198,7 @@ class PeerPairApp {
     const header = parseQRPayload(data);
     if (!header || header.role !== 'answer') return;
 
-    const chunk = { ...header };
+    // Store chunk
     this.ctx.scannedChunks.set(header.seq, data);
 
     const assembled = assembleChunks(
