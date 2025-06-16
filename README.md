@@ -1,6 +1,6 @@
-# PeerPair - P2P Pairing Web App
+# Pair2Peer - Direct Device Pairing Web App
 
-A lightweight PWA for establishing encrypted peer-to-peer WebRTC connections without servers, using QR code exchange.
+A lightweight PWA for establishing encrypted direct device WebRTC connections without servers, using QR code exchange.
 
 ## Features
 

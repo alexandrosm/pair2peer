@@ -1,7 +1,7 @@
 {
-  "name": "PeerPair - P2P Pairing",
-  "short_name": "PeerPair",
-  "description": "Secure peer-to-peer pairing without servers",
+  "name": "Pair2Peer - Direct Device Pairing",
+  "short_name": "Pair2Peer",
+  "description": "Secure direct device pairing without servers",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f9fafb",

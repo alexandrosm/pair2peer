@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 declare const self: ServiceWorkerGlobalScope;
 
-const CACHE_NAME = 'peerpair-v1';
+const CACHE_NAME = 'pair2peer-v1';
 const urlsToCache = [
   '/',
   '/index.html',
