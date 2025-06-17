@@ -66,7 +66,10 @@ class PeerPairApp {
   }
 
   private attachEventListeners(): void {
-    this.elements['start-pairing'].addEventListener('click', () => this.startPairing());
+    this.elements['start-pairing'].addEventListener('click', () => {
+      console.log('START PAIRING BUTTON CLICKED!');
+      this.startPairing();
+    });
     this.elements['scan-answer'].addEventListener('click', () => this.setState('scan-answer-qr'));
     this.elements['manual-input'].addEventListener('click', () => this.setState('manual-paste'));
     this.elements['back-to-scan'].addEventListener('click', () => this.setState('scan-answer-qr'));
