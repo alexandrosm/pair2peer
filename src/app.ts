@@ -437,4 +437,11 @@ class PeerPairApp {
   }
 }
 
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/pair2peer/worker.js')
+    .then(() => console.log('Service worker registered'))
+    .catch((err) => console.error('Service worker registration failed:', err));
+}
+
 new PeerPairApp();
