@@ -10,6 +10,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon.ico">
     <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <div id="app" class="w-full max-w-md">
@@ -20,77 +22,450 @@
                 Ready to start pairing
             </div>
             
-            <!-- Step 1: Start -->
-            <div id="step-start" class="step-view">
-                <p class="text-gray-600 text-center mb-6">Establish secure direct connection by scanning QR codes</p>
-                <button id="start-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
-                    Start Pairing
+            <!-- Step 1: Choose Role -->
+            <div id="step-role" class="step-view">
+                <p class="text-gray-600 text-center mb-6">Choose your role</p>
+                <button id="create-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors mb-2">
+                    Create Room
+                </button>
+                <button id="join-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+                    Join Room
                 </button>
             </div>
 
-            <!-- Step 2: Show QR -->
-            <div id="step-qr" class="step-view hidden">
+            <!-- Step 2: Room Code -->
+            <div id="step-room" class="step-view hidden">
                 <div class="text-center mb-4">
-                    <p class="text-sm text-gray-600 mb-2">Show this QR to other device</p>
+                    <p class="text-lg font-bold mb-2">Room Code:</p>
+                    <p class="text-3xl font-mono font-bold text-blue-600 mb-4" id="room-code">----</p>
+                    <canvas id="qr-canvas" class="mx-auto mb-4"></canvas>
+                    <p class="text-xs text-gray-500">Show this code to the other device</p>
                 </div>
-                <div id="qr-container" class="flex justify-center mb-4"></div>
-                <button id="scan-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                    Scan Their QR
+                <button id="enter-code-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Enter Their Code
                 </button>
             </div>
 
-            <!-- Step 3: Scan QR -->
+            <!-- Step 3: Enter Code -->
+            <div id="step-enter" class="step-view hidden">
+                <p class="text-center mb-4">Enter the room code from the other device:</p>
+                <input id="code-input" type="text" class="w-full p-3 border-2 border-gray-300 rounded-lg text-center text-2xl font-mono uppercase mb-4" placeholder="XXXX" maxlength="4">
+                <button id="connect-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors mb-2">
+                    Connect
+                </button>
+                <button id="scan-code-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Scan QR Instead
+                </button>
+            </div>
+
+            <!-- Step 4: Scan QR -->
             <div id="step-scan" class="step-view hidden">
                 <div class="relative bg-black rounded-lg overflow-hidden mb-4" style="aspect-ratio: 4/3;">
                     <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
                 </div>
-                <p class="text-center mb-4 text-sm text-gray-600">Point at their QR code</p>
-                <div class="space-y-2">
-                    <button id="manual-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
-                        Copy/Paste Instead
-                    </button>
-                    <button id="back-scan-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
-                        Back
-                    </button>
-                </div>
+                <p class="text-center mb-4 text-sm text-gray-600">Point camera at QR code</p>
+                <button id="manual-code-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Enter Code Manually
+                </button>
             </div>
 
-            <!-- Step 4: Manual Input -->
-            <div id="step-manual" class="step-view hidden">
-                <p class="text-sm text-gray-600 mb-4">Paste the connection data:</p>
-                <textarea id="manual-input" class="w-full h-32 p-3 border border-gray-300 rounded-lg font-mono text-xs mb-4" placeholder="Paste connection data here..."></textarea>
-                <div class="space-y-2">
-                    <button id="connect-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                        Connect
-                    </button>
-                    <button id="back-manual-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
-                        Back
-                    </button>
+            <!-- Step 5: Connecting -->
+            <div id="step-connecting" class="step-view hidden">
+                <div class="flex items-center justify-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
+                <p class="text-center mt-4 text-gray-600">Establishing connection...</p>
+                <div id="connection-log" class="mt-4 p-3 bg-gray-100 rounded text-xs font-mono max-h-32 overflow-y-auto"></div>
             </div>
 
-            <!-- Step 5: Connected -->
+            <!-- Step 6: Connected -->
             <div id="step-connected" class="step-view hidden">
                 <div class="text-center">
                     <svg class="w-16 h-16 text-green-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <h2 class="text-xl font-semibold text-gray-800 mb-2">Connected ✓</h2>
-                    <p class="text-sm text-gray-600 mb-4">Secure P2P channel established</p>
-                    <div id="connection-info" class="text-xs font-mono bg-gray-100 p-3 rounded mb-4"></div>
-                    <div class="space-y-2">
-                        <button id="test-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                            Send Test Message
-                        </button>
-                        <button id="disconnect-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                            Disconnect
-                        </button>
+                    <h2 class="text-xl font-semibold text-gray-800 mb-2">Connected!</h2>
+                    <div id="chat-messages" class="h-40 overflow-y-auto bg-gray-100 rounded p-3 mb-4 text-sm"></div>
+                    <div class="flex gap-2">
+                        <input id="message-input" type="text" class="flex-1 p-2 border border-gray-300 rounded" placeholder="Type a message...">
+                        <button id="send-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
                     </div>
+                    <button id="disconnect-btn" class="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Disconnect
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script type="module" src="./src/main.js"></script>
+    <script>
+        // Simple implementation using room codes instead of full SDP exchange
+        const state = {
+            role: null,
+            roomCode: null,
+            pc: null,
+            dc: null,
+            offer: null,
+            answer: null,
+            pendingCandidates: []
+        };
+
+        // Simulated signaling server using localStorage (for demo)
+        // In production, this would be a real signaling server
+        const signaling = {
+            rooms: {},
+            
+            createRoom(offer) {
+                const code = Math.random().toString(36).substr(2, 4).toUpperCase();
+                const room = {
+                    code,
+                    offer,
+                    answer: null,
+                    offerCandidates: [],
+                    answerCandidates: []
+                };
+                // Store in localStorage for cross-tab communication
+                localStorage.setItem(`room-${code}`, JSON.stringify(room));
+                return code;
+            },
+            
+            getRoom(code) {
+                const data = localStorage.getItem(`room-${code}`);
+                return data ? JSON.parse(data) : null;
+            },
+            
+            updateRoom(code, updates) {
+                const room = this.getRoom(code);
+                if (room) {
+                    Object.assign(room, updates);
+                    localStorage.setItem(`room-${code}`, JSON.stringify(room));
+                }
+            },
+            
+            addCandidate(code, type, candidate) {
+                const room = this.getRoom(code);
+                if (room) {
+                    const key = type === 'offer' ? 'offerCandidates' : 'answerCandidates';
+                    room[key].push(candidate);
+                    localStorage.setItem(`room-${code}`, JSON.stringify(room));
+                }
+            }
+        };
+
+        function showStep(step) {
+            document.querySelectorAll('.step-view').forEach(el => {
+                el.classList.add('hidden');
+            });
+            const stepEl = document.getElementById(`step-${step}`);
+            if (stepEl) stepEl.classList.remove('hidden');
+        }
+
+        function updateStatus(msg, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = msg;
+            statusEl.className = 'mb-4 p-3 rounded-lg text-center';
+            if (type === 'error') {
+                statusEl.classList.add('bg-red-50', 'text-red-800');
+            } else if (type === 'success') {
+                statusEl.classList.add('bg-green-50', 'text-green-800');
+            } else {
+                statusEl.classList.add('bg-blue-50', 'text-blue-800');
+            }
+        }
+
+        function log(msg) {
+            console.log(msg);
+            const logEl = document.getElementById('connection-log');
+            if (logEl) {
+                logEl.innerHTML += `${new Date().toLocaleTimeString()}: ${msg}<br>`;
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+        }
+
+        async function createRoom() {
+            state.role = 'creator';
+            showStep('connecting');
+            updateStatus('Creating room...');
+            
+            try {
+                // Create peer connection
+                state.pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                // Create data channel
+                state.dc = state.pc.createDataChannel('chat');
+                setupDataChannel();
+                
+                // Handle ICE candidates
+                state.pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        log('ICE candidate found');
+                        signaling.addCandidate(state.roomCode, 'offer', event.candidate);
+                    }
+                };
+                
+                // Create offer
+                const offer = await state.pc.createOffer();
+                await state.pc.setLocalDescription(offer);
+                state.offer = offer;
+                
+                // Create room with offer
+                state.roomCode = signaling.createRoom(offer);
+                
+                // Show room code
+                document.getElementById('room-code').textContent = state.roomCode;
+                QRCode.toCanvas(document.getElementById('qr-canvas'), state.roomCode, {
+                    width: 200,
+                    margin: 2
+                });
+                
+                showStep('room');
+                updateStatus('Room created! Share the code');
+                
+                // Poll for answer
+                pollForAnswer();
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function joinRoom(code) {
+            state.role = 'joiner';
+            state.roomCode = code.toUpperCase();
+            showStep('connecting');
+            updateStatus('Joining room...');
+            
+            try {
+                // Get room info
+                const room = signaling.getRoom(state.roomCode);
+                if (!room) {
+                    throw new Error('Room not found');
+                }
+                
+                log('Room found, creating answer...');
+                
+                // Create peer connection
+                state.pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                // Handle data channel
+                state.pc.ondatachannel = (event) => {
+                    log('Data channel received');
+                    state.dc = event.channel;
+                    setupDataChannel();
+                };
+                
+                // Handle ICE candidates
+                state.pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        log('ICE candidate found');
+                        signaling.addCandidate(state.roomCode, 'answer', event.candidate);
+                    }
+                };
+                
+                // Set remote description
+                await state.pc.setRemoteDescription(room.offer);
+                
+                // Add any ICE candidates
+                for (const candidate of room.offerCandidates) {
+                    await state.pc.addIceCandidate(candidate);
+                }
+                
+                // Create answer
+                const answer = await state.pc.createAnswer();
+                await state.pc.setLocalDescription(answer);
+                state.answer = answer;
+                
+                // Save answer
+                signaling.updateRoom(state.roomCode, { answer });
+                
+                log('Answer created, waiting for connection...');
+                
+                // Poll for ICE candidates
+                pollForCandidates();
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message, 'error');
+                showStep('enter');
+            }
+        }
+
+        async function pollForAnswer() {
+            const interval = setInterval(async () => {
+                const room = signaling.getRoom(state.roomCode);
+                if (room && room.answer) {
+                    clearInterval(interval);
+                    log('Answer received!');
+                    
+                    // Set remote description
+                    await state.pc.setRemoteDescription(room.answer);
+                    
+                    // Add any ICE candidates
+                    for (const candidate of room.answerCandidates) {
+                        await state.pc.addIceCandidate(candidate);
+                    }
+                    
+                    // Continue polling for more candidates
+                    pollForCandidates();
+                }
+            }, 1000);
+        }
+
+        async function pollForCandidates() {
+            let lastCount = 0;
+            const interval = setInterval(async () => {
+                const room = signaling.getRoom(state.roomCode);
+                if (room) {
+                    const candidates = state.role === 'creator' ? room.answerCandidates : room.offerCandidates;
+                    if (candidates.length > lastCount) {
+                        for (let i = lastCount; i < candidates.length; i++) {
+                            await state.pc.addIceCandidate(candidates[i]);
+                        }
+                        lastCount = candidates.length;
+                    }
+                }
+                
+                // Stop polling when connected
+                if (state.pc.connectionState === 'connected') {
+                    clearInterval(interval);
+                }
+            }, 1000);
+        }
+
+        function setupDataChannel() {
+            state.dc.onopen = () => {
+                log('Connected!');
+                updateStatus('Connected!', 'success');
+                showStep('connected');
+            };
+            
+            state.dc.onmessage = (event) => {
+                addMessage('Them', event.data);
+            };
+            
+            state.dc.onerror = (error) => {
+                log('Channel error: ' + error);
+            };
+        }
+
+        function addMessage(sender, text) {
+            const messagesEl = document.getElementById('chat-messages');
+            const msgEl = document.createElement('div');
+            msgEl.className = sender === 'You' ? 'text-right' : 'text-left';
+            msgEl.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            messagesEl.appendChild(msgEl);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (text && state.dc && state.dc.readyState === 'open') {
+                state.dc.send(text);
+                addMessage('You', text);
+                input.value = '';
+            }
+        }
+
+        // QR Scanner
+        async function startScanner() {
+            showStep('scan');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const scan = () => {
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0);
+                        
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        
+                        if (code) {
+                            stream.getTracks().forEach(track => track.stop());
+                            joinRoom(code.data);
+                            return;
+                        }
+                    }
+                    requestAnimationFrame(scan);
+                };
+                
+                video.addEventListener('loadedmetadata', scan);
+                
+            } catch (error) {
+                updateStatus('Camera error: ' + error.message, 'error');
+                showStep('enter');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('create-btn').addEventListener('click', createRoom);
+        
+        document.getElementById('join-btn').addEventListener('click', () => {
+            showStep('enter');
+        });
+        
+        document.getElementById('enter-code-btn').addEventListener('click', () => {
+            showStep('enter');
+        });
+        
+        document.getElementById('connect-btn').addEventListener('click', () => {
+            const code = document.getElementById('code-input').value;
+            if (code.length === 4) {
+                joinRoom(code);
+            }
+        });
+        
+        document.getElementById('scan-code-btn').addEventListener('click', startScanner);
+        
+        document.getElementById('manual-code-btn').addEventListener('click', () => {
+            const video = document.getElementById('video');
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+            showStep('enter');
+        });
+        
+        document.getElementById('send-btn').addEventListener('click', sendMessage);
+        
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+        
+        document.getElementById('disconnect-btn').addEventListener('click', () => {
+            if (state.pc) {
+                state.pc.close();
+                state.pc = null;
+                state.dc = null;
+            }
+            state.roomCode = null;
+            updateStatus('Disconnected');
+            showStep('role');
+        });
+        
+        // Auto-advance on code input
+        document.getElementById('code-input').addEventListener('input', (e) => {
+            const value = e.target.value.toUpperCase();
+            e.target.value = value;
+            if (value.length === 4) {
+                document.getElementById('connect-btn').click();
+            }
+        });
+
+        // Initialize
+        updateStatus('Choose your role to begin');
+    </script>
 </body>
 </html>
