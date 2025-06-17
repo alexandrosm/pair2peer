@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon.ico">
     <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
@@ -38,7 +38,7 @@
                 <div class="text-center mb-4">
                     <p class="text-lg font-bold mb-2">Room Code:</p>
                     <p class="text-3xl font-mono font-bold text-blue-600 mb-4" id="room-code">----</p>
-                    <canvas id="qr-canvas" class="mx-auto mb-4"></canvas>
+                    <div id="qr-canvas" class="mx-auto mb-4" style="width: 200px; height: 200px;"></div>
                     <p class="text-xs text-gray-500">Show this code to the other device</p>
                 </div>
                 <button id="enter-code-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
@@ -215,9 +215,13 @@
                 
                 // Show room code
                 document.getElementById('room-code').textContent = state.roomCode;
-                QRCode.toCanvas(document.getElementById('qr-canvas'), state.roomCode, {
+                const qrDiv = document.getElementById('qr-canvas');
+                qrDiv.innerHTML = ''; // Clear any existing QR code
+                new QRCode(qrDiv, {
+                    text: state.roomCode,
                     width: 200,
-                    margin: 2
+                    height: 200,
+                    correctLevel: QRCode.CorrectLevel.L
                 });
                 
                 showStep('room');
