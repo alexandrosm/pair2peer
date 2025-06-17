@@ -13,8 +13,7 @@ export default defineConfig(async () => {
       outDir: 'dist',
       rollupOptions: {
         input: {
-          main: resolve(__dirname, 'index.html'),
-          worker: resolve(__dirname, 'src/worker.ts')
+          main: resolve(__dirname, 'index.html')
         },
         output: {
           entryFileNames: '[name].js',

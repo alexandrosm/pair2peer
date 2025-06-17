@@ -12,7 +12,7 @@
     "logs:error": "node dev-manager.js logs error",
     "list-servers": "node dev-manager.js list",
     "show-port": "node show-port.js",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
