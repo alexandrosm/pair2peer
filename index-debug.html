@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pair2Peer - Debug Version</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <div id="app" class="w-full max-w-md">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-2xl font-bold text-center mb-6">Pair2Peer - Debug</h1>
+            
+            <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center text-sm">
+                Ready to start pairing
+            </div>
+            
+            <div id="debug" class="mb-4 p-2 rounded bg-gray-100 text-xs font-mono max-h-32 overflow-y-auto">
+                Debug info will appear here...
+            </div>
+            
+            <!-- Step 1: Start -->
+            <div id="step-start" class="step-view">
+                <p class="text-gray-600 text-center mb-6">Debug version with simplified QR codes</p>
+                <button id="start-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+                    Start Pairing (Initiator)
+                </button>
+                <button id="join-btn" class="w-full mt-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+                    Join Pairing (Responder)
+                </button>
+            </div>
+
+            <!-- Step 2: Show QR -->
+            <div id="step-qr" class="step-view hidden">
+                <div class="text-center mb-4">
+                    <p class="text-sm text-gray-600 mb-2">Show this QR to other device</p>
+                    <p class="text-xs text-gray-500">Data size: <span id="data-size">0</span> bytes</p>
+                </div>
+                <canvas id="qr-canvas" class="mx-auto mb-4"></canvas>
+                <textarea id="qr-data" class="w-full h-20 p-2 border border-gray-300 rounded text-xs font-mono mb-4" readonly></textarea>
+                <button id="scan-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Scan Their QR
+                </button>
+            </div>
+
+            <!-- Step 3: Scan QR -->
+            <div id="step-scan" class="step-view hidden">
+                <select id="camera-select" class="w-full mb-2 p-2 border border-gray-300 rounded">
+                    <option value="">Select Camera</option>
+                </select>
+                <div class="relative bg-black rounded-lg overflow-hidden mb-4" style="aspect-ratio: 4/3;">
+                    <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                    <canvas id="scan-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+                </div>
+                <div class="text-xs text-gray-600 mb-4">
+                    <p>Video: <span id="video-info">--</span></p>
+                    <p>Scanning: <span id="scan-status">--</span></p>
+                </div>
+                <div class="space-y-2">
+                    <button id="manual-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Manual Input
+                    </button>
+                    <button id="back-scan-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Back
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4: Manual Input -->
+            <div id="step-manual" class="step-view hidden">
+                <p class="text-sm text-gray-600 mb-4">Paste the connection data:</p>
+                <textarea id="manual-input" class="w-full h-32 p-3 border border-gray-300 rounded-lg font-mono text-xs mb-4" placeholder="Paste connection data here..."></textarea>
+                <div class="space-y-2">
+                    <button id="connect-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Process Data
+                    </button>
+                    <button id="back-manual-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Back
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 5: Connected -->
+            <div id="step-connected" class="step-view hidden">
+                <div class="text-center">
+                    <svg class="w-16 h-16 text-green-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h2 class="text-xl font-semibold text-gray-800 mb-2">Connected ✓</h2>
+                    <div id="connection-info" class="text-xs font-mono bg-gray-100 p-3 rounded mb-4"></div>
+                    <div class="space-y-2">
+                        <button id="test-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            Send Test Message
+                        </button>
+                        <button id="disconnect-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            Disconnect
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        console.log('Pair2Peer Debug starting...');
+        
+        // Debug logging
+        const debugLog = (msg) => {
+            console.log(msg);
+            const debugEl = document.getElementById('debug');
+            if (debugEl) {
+                const time = new Date().toLocaleTimeString();
+                debugEl.innerHTML = `${time}: ${msg}<br>` + debugEl.innerHTML;
+                debugEl.scrollTop = 0;
+            }
+        };
+
+        // App state
+        const state = {
+            role: null, // 'initiator' or 'responder'
+            pc: null,
+            dc: null,
+            offer: null,
+            answer: null,
+            iceCandidates: [],
+            scanInterval: null,
+            currentCamera: null
+        };
+
+        // Show step
+        function showStep(step) {
+            debugLog(`Showing step: ${step}`);
+            document.querySelectorAll('.step-view').forEach(el => {
+                el.classList.add('hidden');
+            });
+            const stepEl = document.getElementById(`step-${step}`);
+            if (stepEl) stepEl.classList.remove('hidden');
+        }
+
+        // Update status
+        function updateStatus(msg, type = 'info') {
+            debugLog(`Status: ${msg}`);
+            const statusEl = document.getElementById('status');
+            if (statusEl) {
+                statusEl.textContent = msg;
+                statusEl.className = 'mb-4 p-3 rounded-lg text-center text-sm';
+                if (type === 'error') {
+                    statusEl.classList.add('bg-red-50', 'text-red-800');
+                } else if (type === 'success') {
+                    statusEl.classList.add('bg-green-50', 'text-green-800');
+                } else {
+                    statusEl.classList.add('bg-blue-50', 'text-blue-800');
+                }
+            }
+        }
+
+        // Generate QR with size limit
+        function generateQR(data) {
+            debugLog(`Generating QR for ${data.length} bytes of data`);
+            
+            const canvas = document.getElementById('qr-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Show data size
+            document.getElementById('data-size').textContent = data.length;
+            
+            // Generate QR code
+            try {
+                QRCode.toCanvas(canvas, data, {
+                    width: 256,
+                    margin: 2,
+                    errorCorrectionLevel: 'L' // Use low error correction for more data capacity
+                }, (error) => {
+                    if (error) {
+                        debugLog('QR generation error: ' + error);
+                        updateStatus('QR generation failed', 'error');
+                    } else {
+                        debugLog('QR generated successfully');
+                        document.getElementById('qr-data').value = data;
+                    }
+                });
+            } catch (error) {
+                debugLog('QR generation exception: ' + error);
+                updateStatus('QR generation failed', 'error');
+            }
+        }
+
+        // Compress SDP (remove unnecessary lines)
+        function compressSDP(sdp) {
+            // Remove comments and empty lines
+            const lines = sdp.split('\n').filter(line => 
+                line.trim() && !line.startsWith('a=ssrc') && !line.startsWith('a=msid')
+            );
+            return lines.join('\n');
+        }
+
+        // Create connection
+        async function createConnection(role) {
+            debugLog(`Creating connection as ${role}`);
+            state.role = role;
+            
+            try {
+                state.pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                // Collect ICE candidates
+                state.iceCandidates = [];
+                state.pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        debugLog(`ICE candidate: ${event.candidate.candidate}`);
+                        state.iceCandidates.push(event.candidate);
+                    } else {
+                        debugLog('ICE gathering complete');
+                        if (state.role === 'initiator') {
+                            // For initiator, show offer
+                            const offerData = {
+                                type: 'offer',
+                                sdp: compressSDP(state.pc.localDescription.sdp),
+                                ice: state.iceCandidates.map(c => ({
+                                    candidate: c.candidate,
+                                    sdpMLineIndex: c.sdpMLineIndex
+                                }))
+                            };
+                            const compressed = JSON.stringify(offerData);
+                            debugLog(`Offer size: ${compressed.length} bytes`);
+                            generateQR(compressed);
+                            updateStatus('QR code ready - show to other device');
+                            showStep('qr');
+                        }
+                    }
+                };
+                
+                if (role === 'initiator') {
+                    // Create data channel
+                    state.dc = state.pc.createDataChannel('pair2peer', { ordered: true });
+                    setupDataChannel(state.dc);
+                    
+                    // Create offer
+                    const offer = await state.pc.createOffer();
+                    await state.pc.setLocalDescription(offer);
+                    state.offer = offer;
+                    
+                    updateStatus('Creating connection info...');
+                } else {
+                    // Responder waits for offer
+                    state.pc.ondatachannel = (event) => {
+                        debugLog('Data channel received');
+                        state.dc = event.channel;
+                        setupDataChannel(state.dc);
+                    };
+                    
+                    updateStatus('Ready to scan initiator QR');
+                    showStep('scan');
+                    await startCamera();
+                }
+                
+            } catch (error) {
+                debugLog('Connection error: ' + error);
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        // Setup data channel
+        function setupDataChannel(channel) {
+            channel.onopen = () => {
+                debugLog('Data channel opened');
+                updateStatus('Connected!', 'success');
+                document.getElementById('connection-info').innerHTML = `
+                    Role: ${state.role}<br>
+                    State: ${state.pc.connectionState}<br>
+                    Channel: ${channel.readyState}
+                `;
+                showStep('connected');
+            };
+            
+            channel.onmessage = (event) => {
+                debugLog('Message received: ' + event.data);
+                updateStatus('Received: ' + event.data, 'success');
+            };
+            
+            channel.onerror = (error) => {
+                debugLog('Data channel error: ' + error);
+            };
+        }
+
+        // Process connection data
+        async function processConnectionData(data) {
+            debugLog(`Processing ${data.length} bytes of data`);
+            
+            try {
+                const parsed = JSON.parse(data);
+                debugLog(`Parsed data type: ${parsed.type}`);
+                
+                if (parsed.type === 'offer' && state.role === 'responder') {
+                    // Process offer
+                    await state.pc.setRemoteDescription({
+                        type: 'offer',
+                        sdp: parsed.sdp
+                    });
+                    
+                    // Add ICE candidates
+                    for (const ice of parsed.ice || []) {
+                        await state.pc.addIceCandidate(ice);
+                    }
+                    
+                    // Create answer
+                    const answer = await state.pc.createAnswer();
+                    await state.pc.setLocalDescription(answer);
+                    
+                    // Wait for ICE gathering
+                    setTimeout(() => {
+                        const answerData = {
+                            type: 'answer',
+                            sdp: compressSDP(state.pc.localDescription.sdp),
+                            ice: state.iceCandidates.map(c => ({
+                                candidate: c.candidate,
+                                sdpMLineIndex: c.sdpMLineIndex
+                            }))
+                        };
+                        const compressed = JSON.stringify(answerData);
+                        debugLog(`Answer size: ${compressed.length} bytes`);
+                        generateQR(compressed);
+                        updateStatus('Show this answer QR to initiator');
+                        showStep('qr');
+                    }, 2000);
+                    
+                } else if (parsed.type === 'answer' && state.role === 'initiator') {
+                    // Process answer
+                    await state.pc.setRemoteDescription({
+                        type: 'answer',
+                        sdp: parsed.sdp
+                    });
+                    
+                    // Add ICE candidates
+                    for (const ice of parsed.ice || []) {
+                        await state.pc.addIceCandidate(ice);
+                    }
+                    
+                    updateStatus('Connecting...', 'success');
+                }
+                
+            } catch (error) {
+                debugLog('Process error: ' + error);
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        // Camera handling
+        async function startCamera() {
+            try {
+                // Get available cameras
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                debugLog(`Found ${videoDevices.length} cameras`);
+                
+                // Populate camera selector
+                const select = document.getElementById('camera-select');
+                select.innerHTML = '';
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Camera ${index + 1}`;
+                    select.appendChild(option);
+                });
+                
+                // Select front camera by default on laptop
+                const frontCamera = videoDevices.find(d => 
+                    d.label.toLowerCase().includes('front') || 
+                    d.label.toLowerCase().includes('facetime')
+                );
+                if (frontCamera) {
+                    select.value = frontCamera.deviceId;
+                }
+                
+                // Start with selected camera
+                await selectCamera(select.value || videoDevices[0]?.deviceId);
+                
+            } catch (error) {
+                debugLog('Camera error: ' + error);
+                updateStatus('Camera error: ' + error.message, 'error');
+            }
+        }
+
+        async function selectCamera(deviceId) {
+            if (!deviceId) return;
+            
+            debugLog(`Selecting camera: ${deviceId}`);
+            
+            // Stop current stream
+            if (state.currentCamera) {
+                state.currentCamera.getTracks().forEach(t => t.stop());
+            }
+            
+            // Start new stream
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    deviceId: deviceId,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
+            
+            state.currentCamera = stream;
+            const video = document.getElementById('video');
+            video.srcObject = stream;
+            
+            video.onloadedmetadata = () => {
+                const info = `${video.videoWidth}x${video.videoHeight}`;
+                document.getElementById('video-info').textContent = info;
+                debugLog(`Video started: ${info}`);
+                startScanning();
+            };
+        }
+
+        // QR scanning
+        function startScanning() {
+            if (state.scanInterval) return;
+            
+            debugLog('Starting QR scan');
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('scan-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            state.scanInterval = setInterval(() => {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    
+                    document.getElementById('scan-status').textContent = code ? 'QR detected!' : 'Scanning...';
+                    
+                    if (code) {
+                        debugLog(`QR scanned: ${code.data.length} bytes`);
+                        stopScanning();
+                        stopCamera();
+                        processConnectionData(code.data);
+                    }
+                }
+            }, 100);
+        }
+
+        function stopScanning() {
+            if (state.scanInterval) {
+                clearInterval(state.scanInterval);
+                state.scanInterval = null;
+            }
+        }
+
+        function stopCamera() {
+            if (state.currentCamera) {
+                state.currentCamera.getTracks().forEach(t => t.stop());
+                state.currentCamera = null;
+            }
+            document.getElementById('video').srcObject = null;
+        }
+
+        // Event listeners
+        document.getElementById('start-btn').addEventListener('click', () => {
+            createConnection('initiator');
+        });
+
+        document.getElementById('join-btn').addEventListener('click', () => {
+            createConnection('responder');
+        });
+
+        document.getElementById('scan-btn').addEventListener('click', async () => {
+            showStep('scan');
+            await startCamera();
+        });
+
+        document.getElementById('camera-select').addEventListener('change', (e) => {
+            selectCamera(e.target.value);
+        });
+
+        document.getElementById('manual-btn').addEventListener('click', () => {
+            stopScanning();
+            stopCamera();
+            showStep('manual');
+        });
+
+        document.getElementById('connect-btn').addEventListener('click', () => {
+            const data = document.getElementById('manual-input').value.trim();
+            if (data) {
+                processConnectionData(data);
+            }
+        });
+
+        document.getElementById('back-scan-btn').addEventListener('click', () => {
+            stopScanning();
+            stopCamera();
+            showStep('qr');
+        });
+
+        document.getElementById('back-manual-btn').addEventListener('click', () => {
+            showStep('qr');
+        });
+
+        document.getElementById('test-btn').addEventListener('click', () => {
+            if (state.dc && state.dc.readyState === 'open') {
+                const msg = `Test from ${state.role} at ${new Date().toLocaleTimeString()}`;
+                state.dc.send(msg);
+                debugLog('Sent: ' + msg);
+            }
+        });
+
+        document.getElementById('disconnect-btn').addEventListener('click', () => {
+            if (state.pc) {
+                state.pc.close();
+                state.pc = null;
+                state.dc = null;
+            }
+            stopScanning();
+            stopCamera();
+            debugLog('Disconnected');
+            updateStatus('Disconnected');
+            showStep('start');
+        });
+
+        // Initialize
+        debugLog('Debug version initialized');
+        updateStatus('Ready - choose your role');
+    </script>
+</body>
+</html>
