@@ -2,20 +2,20 @@
   "name": "Pair2Peer - Direct Device Pairing",
   "short_name": "Pair2Peer",
   "description": "Secure direct device pairing without servers",
-  "start_url": "/pair2peer/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f9fafb",
   "theme_color": "#1e40af",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/pair2peer/icon-192.png",
+      "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/pair2peer/icon-512.png",
+      "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
