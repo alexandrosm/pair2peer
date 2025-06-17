@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Pair2Peer</title>
+</head>
+<body>
+    <h1>Test Pair2Peer</h1>
+    <button id="test-btn">Test QR Generation</button>
+    <div id="output"></div>
+    
+    <script type="module">
+        import qrcode from 'qrcode-generator';
+        
+        const btn = document.getElementById('test-btn');
+        const output = document.getElementById('output');
+        
+        btn.addEventListener('click', () => {
+            console.log('Button clicked!');
+            
+            try {
+                // Create QR code
+                const qr = qrcode(0, 'M');
+                qr.addData('Hello World!');
+                qr.make();
+                
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                const size = 200;
+                const moduleCount = qr.getModuleCount();
+                const cellSize = Math.floor(size / moduleCount);
+                
+                canvas.width = cellSize * moduleCount;
+                canvas.height = cellSize * moduleCount;
+                
+                const ctx = canvas.getContext('2d');
+                
+                // Draw QR
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#000000';
+                for (let row = 0; row < moduleCount; row++) {
+                    for (let col = 0; col < moduleCount; col++) {
+                        if (qr.isDark(row, col)) {
+                            ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                        }
+                    }
+                }
+                
+                output.appendChild(canvas);
+                console.log('QR code generated successfully!');
+            } catch (err) {
+                console.error('Error:', err);
+                output.textContent = 'Error: ' + err.message;
+            }
+        });
+        
+        console.log('Test page loaded');
+    </script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Pair2Peer Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        #qr-container {
+            margin: 20px 0;
+        }
+        #error {
+            color: red;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Pair2Peer Test</h1>
+    <p>This is a minimal test to verify QR generation works.</p>
+    
+    <button id="generate-btn">Generate QR Code</button>
+    
+    <div id="pair-code" style="font-size: 24px; font-weight: bold; margin: 20px 0;"></div>
+    <div id="qr-container"></div>
+    <div id="error"></div>
+    
+    <script>
+        console.log('Simple test page loading...');
+        
+        // Simple QR code generator function
+        function generateQR(text, size) {
+            // This is a minimal QR generator implementation
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // For now, just create a placeholder
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, size, size);
+            
+            ctx.fillStyle = '#000';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('QR Placeholder', size/2, size/2 - 20);
+            ctx.fillText(text.substring(0, 20), size/2, size/2);
+            ctx.fillText('(' + text.length + ' chars)', size/2, size/2 + 20);
+            
+            return canvas;
+        }
+        
+        document.getElementById('generate-btn').addEventListener('click', function() {
+            console.log('Generate button clicked!');
+            
+            try {
+                // Generate pair code
+                const pairCode = Math.floor(1000 + Math.random() * 9000).toString();
+                console.log('Generated pair code:', pairCode);
+                
+                // Display pair code
+                document.getElementById('pair-code').textContent = 'Pair Code: ' + pairCode;
+                
+                // Create test data
+                const testData = JSON.stringify({
+                    magic: 'P2PQR',
+                    v: 1,
+                    pairCode: pairCode,
+                    test: true
+                });
+                
+                // Generate QR (placeholder for now)
+                const canvas = generateQR(testData, 300);
+                
+                // Clear and add to container
+                const container = document.getElementById('qr-container');
+                container.innerHTML = '';
+                container.appendChild(canvas);
+                
+                console.log('QR placeholder generated successfully');
+                
+            } catch (err) {
+                console.error('Error:', err);
+                document.getElementById('error').textContent = 'Error: ' + err.message;
+            }
+        });
+        
+        console.log('Simple test page loaded successfully');
+    </script>
+</body>
+</html>
