@@ -1,9 +1,8 @@
-import QRCode from 'qrcode';
+import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
 import type { P2PQRHeader } from './types.js';
 
 const MAX_QR_SIZE = 2000;
-const QR_ERROR_CORRECTION = 'M';
 
 export function generatePairCode(): string {
   return Math.floor(1000 + Math.random() * 9000).toString();
@@ -45,17 +44,40 @@ export async function createQRChunks(
   return chunks;
 }
 
-export async function generateQRCanvas(data: string): Promise<HTMLCanvasElement> {
+export function generateQRCanvas(data: string): HTMLCanvasElement {
+  console.log('Generating QR for data length:', data.length);
+  
+  // Create QR code
+  const qr = qrcode(0, 'M'); // type 0 = auto, error correction 'M'
+  qr.addData(data);
+  qr.make();
+  
+  // Create canvas
   const canvas = document.createElement('canvas');
-  await QRCode.toCanvas(canvas, data, {
-    errorCorrectionLevel: QR_ERROR_CORRECTION,
-    margin: 2,
-    width: 300,
-    color: {
-      dark: '#000000',
-      light: '#FFFFFF'
+  const size = 300;
+  const moduleCount = qr.getModuleCount();
+  const cellSize = Math.floor(size / moduleCount);
+  
+  canvas.width = cellSize * moduleCount;
+  canvas.height = cellSize * moduleCount;
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get canvas context');
+  
+  // Draw QR code
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.fillStyle = '#000000';
+  for (let row = 0; row < moduleCount; row++) {
+    for (let col = 0; col < moduleCount; col++) {
+      if (qr.isDark(row, col)) {
+        ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+      }
     }
-  });
+  }
+  
+  console.log('QR canvas generated:', canvas.width, 'x', canvas.height);
   return canvas;
 }
 

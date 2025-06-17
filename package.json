@@ -20,6 +20,6 @@
   },
   "dependencies": {
     "jsqr": "^1.4.0",
-    "qrcode": "^1.5.3"
+    "qrcode-generator": "^1.4.4"
   }
 }

@@ -153,7 +153,7 @@ class PeerPairApp {
     }
   }
 
-  private async showOfferQR(): Promise<void> {
+  private showOfferQR(): void {
     console.log('Showing offer QR, pair code:', this.ctx.pairCode);
     this.setState('show-offer-qr');
     this.elements['pair-code-display'].textContent = this.ctx.pairCode;
@@ -165,10 +165,17 @@ class PeerPairApp {
     for (let i = 0; i < this.ctx.qrChunks.length; i++) {
       const chunk = this.ctx.qrChunks[i];
       console.log(`Generating QR canvas ${i + 1}/${this.ctx.qrChunks.length}`);
-      const canvas = await generateQRCanvas(chunk);
-      container.appendChild(canvas);
+      try {
+        const canvas = generateQRCanvas(chunk);
+        container.appendChild(canvas);
+        console.log(`QR canvas ${i + 1} generated and appended`);
+      } catch (err) {
+        console.error(`Failed to generate QR canvas ${i + 1}:`, err);
+        this.showError('Failed to generate QR code: ' + (err as Error).message);
+        return;
+      }
     }
-    console.log('QR canvases appended to container');
+    console.log('All QR canvases appended to container');
   }
 
   private async startScanning(): Promise<void> {
