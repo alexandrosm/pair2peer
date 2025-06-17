@@ -9,84 +9,68 @@
     <meta name="theme-color" content="#1e40af">
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon.ico">
     <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
-    <link rel="stylesheet" href="./src/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <div id="app" class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-6">Pair2Peer</h1>
             
-            <div id="state-idle" class="state-view">
+            <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
+                Ready to start pairing
+            </div>
+            
+            <!-- Step 1: Start -->
+            <div id="step-start" class="step-view">
                 <p class="text-gray-600 text-center mb-6">Establish secure direct connection by scanning QR codes</p>
-                <button id="start-pairing" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+                <button id="start-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
                     Start Pairing
                 </button>
             </div>
 
-            <div id="state-gather" class="state-view hidden">
-                <div class="flex items-center justify-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                </div>
-                <p class="text-center mt-4 text-gray-600">Gathering connection info...</p>
-            </div>
-
-            <div id="state-show-qr" class="state-view hidden">
+            <!-- Step 2: Show QR -->
+            <div id="step-qr" class="step-view hidden">
                 <div class="text-center mb-4">
                     <p class="text-sm text-gray-600 mb-2">Show this QR to other device</p>
-                    <div class="text-3xl font-mono font-bold text-blue-600" id="pair-code-display"></div>
                 </div>
                 <div id="qr-container" class="flex justify-center mb-4"></div>
-                <button id="scan-answer" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                <button id="scan-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
                     Scan Their QR
                 </button>
             </div>
 
-            <div id="state-scan" class="state-view hidden">
-                <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio: 1;">
-                    <video id="scanner-video" class="w-full h-full object-cover"></video>
-                    <canvas id="scanner-canvas" class="absolute inset-0 w-full h-full"></canvas>
-                    <div class="qr-overlay pointer-events-none">
-                        <div class="w-48 h-48 border-2 border-white rounded-lg relative">
-                            <div class="scan-line"></div>
-                        </div>
-                    </div>
+            <!-- Step 3: Scan QR -->
+            <div id="step-scan" class="step-view hidden">
+                <div class="relative bg-black rounded-lg overflow-hidden mb-4" style="aspect-ratio: 4/3;">
+                    <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
                 </div>
-                <p class="text-center mt-4 text-sm text-gray-600">Point at their QR code</p>
-                <div class="mt-4 space-y-2">
-                    <button id="toggle-torch" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors hidden">
-                        Toggle Torch
-                    </button>
-                    <button id="manual-input" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                <p class="text-center mb-4 text-sm text-gray-600">Point at their QR code</p>
+                <div class="space-y-2">
+                    <button id="manual-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
                         Copy/Paste Instead
                     </button>
-                </div>
-            </div>
-
-            <div id="state-manual" class="state-view hidden">
-                <p class="text-sm text-gray-600 mb-4">Paste the connection data from the other device:</p>
-                <textarea id="manual-data" class="w-full h-32 p-3 border border-gray-300 rounded-lg font-mono text-xs" placeholder="Paste P2PQR data here..."></textarea>
-                <div class="mt-4 space-y-2">
-                    <button id="parse-manual" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                        Parse Data
-                    </button>
-                    <button id="back-to-scan" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
-                        Back to Scanner
+                    <button id="back-scan-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Back
                     </button>
                 </div>
             </div>
 
-            <div id="state-verify" class="state-view hidden">
-                <div class="flex items-center justify-center">
-                    <div class="animate-pulse">
-                        <svg class="w-16 h-16 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                        </svg>
-                    </div>
+            <!-- Step 4: Manual Input -->
+            <div id="step-manual" class="step-view hidden">
+                <p class="text-sm text-gray-600 mb-4">Paste the connection data:</p>
+                <textarea id="manual-input" class="w-full h-32 p-3 border border-gray-300 rounded-lg font-mono text-xs mb-4" placeholder="Paste connection data here..."></textarea>
+                <div class="space-y-2">
+                    <button id="connect-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Connect
+                    </button>
+                    <button id="back-manual-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Back
+                    </button>
                 </div>
-                <p class="text-center mt-4 text-gray-600">Verifying connection...</p>
             </div>
 
-            <div id="state-connected" class="state-view hidden">
+            <!-- Step 5: Connected -->
+            <div id="step-connected" class="step-view hidden">
                 <div class="text-center">
                     <svg class="w-16 h-16 text-green-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -94,21 +78,19 @@
                     <h2 class="text-xl font-semibold text-gray-800 mb-2">Connected ✓</h2>
                     <p class="text-sm text-gray-600 mb-4">Secure P2P channel established</p>
                     <div id="connection-info" class="text-xs font-mono bg-gray-100 p-3 rounded mb-4"></div>
-                    <button id="disconnect" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                        Disconnect
-                    </button>
+                    <div class="space-y-2">
+                        <button id="test-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            Send Test Message
+                        </button>
+                        <button id="disconnect-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            Disconnect
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            <div id="error-banner" class="hidden mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg" role="alert">
-                <p id="error-message" class="font-semibold"></p>
-                <button id="error-retry" class="mt-2 text-sm underline">Retry</button>
-            </div>
         </div>
-
-        <div id="status-region" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     </div>
 
-    <script type="module" src="./src/app.ts"></script>
+    <script type="module" src="./src/main.js"></script>
 </body>
 </html>

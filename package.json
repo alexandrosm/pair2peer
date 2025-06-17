@@ -4,7 +4,14 @@
   "description": "Pair2Peer - Direct device pairing web app using QR codes and WebRTC",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node start-dev-background.js",
+    "dev:foreground": "node dev-manager.js start",
+    "stop": "node dev-manager.js stop",
+    "status": "node dev-manager.js status",
+    "logs": "node dev-manager.js logs",
+    "logs:error": "node dev-manager.js logs error",
+    "list-servers": "node dev-manager.js list",
+    "show-port": "node show-port.js",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"

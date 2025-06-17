@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pair2Peer - Simple</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .qr-container {
+            margin: 20px 0;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background: #e9ecef;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        video {
+            width: 100%;
+            max-width: 400px;
+            height: 300px;
+            background: black;
+            border-radius: 5px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pair2Peer - Simple</h1>
+        
+        <div id="status" class="status">Ready to start pairing</div>
+        
+        <div id="step1">
+            <button id="startBtn">Start Pairing</button>
+        </div>
+        
+        <div id="step2" class="hidden">
+            <h3>Your QR Code</h3>
+            <div id="qrContainer" class="qr-container"></div>
+            <p>Show this QR code to the other device</p>
+            <button id="scanBtn">Scan Their QR</button>
+        </div>
+        
+        <div id="step3" class="hidden">
+            <h3>Scan QR Code</h3>
+            <video id="video" autoplay playsinline></video>
+            <button id="manualBtn">Enter Manually</button>
+            <button id="backBtn">Back</button>
+        </div>
+        
+        <div id="step4" class="hidden">
+            <h3>Manual Entry</h3>
+            <textarea id="manualInput" placeholder="Paste the other device's data here..."></textarea>
+            <button id="connectBtn">Connect</button>
+            <button id="backBtn2">Back</button>
+        </div>
+        
+        <div id="step5" class="hidden">
+            <h3>Connected!</h3>
+            <p>Secure connection established</p>
+            <button id="disconnectBtn">Disconnect</button>
+        </div>
+    </div>
+
+    <script type="module">
+        console.log('Starting Pair2Peer Simple...');
+        
+        // Simple state management
+        let state = {
+            step: 1,
+            peerConnection: null,
+            dataChannel: null,
+            localOffer: null,
+            remoteAnswer: null
+        };
+        
+        // DOM elements
+        const elements = {
+            status: document.getElementById('status'),
+            startBtn: document.getElementById('startBtn'),
+            scanBtn: document.getElementById('scanBtn'),
+            manualBtn: document.getElementById('manualBtn'),
+            connectBtn: document.getElementById('connectBtn'),
+            backBtn: document.getElementById('backBtn'),
+            backBtn2: document.getElementById('backBtn2'),
+            disconnectBtn: document.getElementById('disconnectBtn'),
+            qrContainer: document.getElementById('qrContainer'),
+            video: document.getElementById('video'),
+            manualInput: document.getElementById('manualInput')
+        };
+        
+        // Show only the current step
+        function showStep(step) {
+            console.log('Showing step:', step);
+            state.step = step;
+            
+            // Hide all steps
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`step${i}`).classList.add('hidden');
+            }
+            
+            // Show current step
+            document.getElementById(`step${step}`).classList.remove('hidden');
+        }
+        
+        // Update status
+        function updateStatus(message, type = 'info') {
+            console.log('Status:', message, type);
+            elements.status.textContent = message;
+            elements.status.className = 'status';
+            if (type === 'error') elements.status.classList.add('error');
+            if (type === 'success') elements.status.classList.add('success');
+        }
+        
+        // Create WebRTC connection
+        async function createConnection() {
+            console.log('Creating WebRTC connection...');
+            
+            try {
+                state.peerConnection = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                // Create data channel
+                state.dataChannel = state.peerConnection.createDataChannel('pair2peer');
+                
+                state.dataChannel.onopen = () => {
+                    console.log('Data channel opened');
+                    updateStatus('Connection established!', 'success');
+                    showStep(5);
+                };
+                
+                state.dataChannel.onmessage = (event) => {
+                    console.log('Received message:', event.data);
+                };
+                
+                // Create offer
+                const offer = await state.peerConnection.createOffer();
+                await state.peerConnection.setLocalDescription(offer);
+                state.localOffer = offer;
+                
+                console.log('Created offer:', offer);
+                
+                // Generate QR code with offer
+                generateQR(JSON.stringify({
+                    type: 'offer',
+                    sdp: offer.sdp
+                }));
+                
+                updateStatus('QR code generated - show to other device');
+                showStep(2);
+                
+            } catch (error) {
+                console.error('Error creating connection:', error);
+                updateStatus('Error creating connection: ' + error.message, 'error');
+            }
+        }
+        
+        // Generate QR code
+        function generateQR(data) {
+            console.log('Generating QR for data length:', data.length);
+            
+            // Simple QR generation using data URI
+            const qrText = data;
+            const qrSize = 300;
+            
+            // Create a simple display since we switched QR libraries
+            const qrDiv = document.createElement('div');
+            qrDiv.style.cssText = `
+                width: ${qrSize}px;
+                height: ${qrSize}px;
+                background: white;
+                border: 2px solid #333;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                padding: 10px;
+                box-sizing: border-box;
+                word-break: break-all;
+                overflow: hidden;
+            `;
+            qrDiv.textContent = qrText.substring(0, 200) + '...';
+            
+            elements.qrContainer.innerHTML = '';
+            elements.qrContainer.appendChild(qrDiv);
+            
+            // Also create a copyable text area
+            const textArea = document.createElement('textarea');
+            textArea.value = qrText;
+            textArea.style.cssText = 'width: 100%; height: 60px; margin-top: 10px; font-size: 10px;';
+            textArea.readonly = true;
+            elements.qrContainer.appendChild(textArea);
+        }
+        
+        // Handle incoming connection data
+        async function handleConnectionData(data) {
+            console.log('Handling connection data:', data);
+            
+            try {
+                const message = JSON.parse(data);
+                
+                if (message.type === 'offer') {
+                    // We received an offer, create answer
+                    console.log('Received offer, creating answer...');
+                    
+                    if (!state.peerConnection) {
+                        state.peerConnection = new RTCPeerConnection({
+                            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                        });
+                        
+                        state.peerConnection.ondatachannel = (event) => {
+                            state.dataChannel = event.channel;
+                            state.dataChannel.onopen = () => {
+                                console.log('Data channel opened (receiver)');
+                                updateStatus('Connection established!', 'success');
+                                showStep(5);
+                            };
+                            state.dataChannel.onmessage = (event) => {
+                                console.log('Received message:', event.data);
+                            };
+                        };
+                    }
+                    
+                    await state.peerConnection.setRemoteDescription({
+                        type: 'offer',
+                        sdp: message.sdp
+                    });
+                    
+                    const answer = await state.peerConnection.createAnswer();
+                    await state.peerConnection.setLocalDescription(answer);
+                    
+                    updateStatus('Connected! Answer created.', 'success');
+                    
+                    // In a real implementation, you'd send this answer back
+                    // For now, we'll just log it
+                    console.log('Answer created:', answer);
+                    
+                } else if (message.type === 'answer') {
+                    // We received an answer to our offer
+                    console.log('Received answer...');
+                    
+                    await state.peerConnection.setRemoteDescription({
+                        type: 'answer',
+                        sdp: message.sdp
+                    });
+                    
+                    updateStatus('Answer received, establishing connection...', 'success');
+                }
+                
+            } catch (error) {
+                console.error('Error handling connection data:', error);
+                updateStatus('Error processing connection data: ' + error.message, 'error');
+            }
+        }
+        
+        // Event listeners
+        elements.startBtn.addEventListener('click', () => {
+            console.log('Start button clicked');
+            updateStatus('Creating connection...');
+            createConnection();
+        });
+        
+        elements.scanBtn.addEventListener('click', () => {
+            console.log('Scan button clicked');
+            updateStatus('Preparing to scan...');
+            showStep(3);
+            startCamera();
+        });
+        
+        elements.manualBtn.addEventListener('click', () => {
+            console.log('Manual button clicked');
+            showStep(4);
+        });
+        
+        elements.connectBtn.addEventListener('click', () => {
+            console.log('Connect button clicked');
+            const data = elements.manualInput.value.trim();
+            if (data) {
+                updateStatus('Processing connection data...');
+                handleConnectionData(data);
+            } else {
+                updateStatus('Please enter connection data', 'error');
+            }
+        });
+        
+        elements.backBtn.addEventListener('click', () => {
+            console.log('Back button clicked');
+            stopCamera();
+            showStep(2);
+        });
+        
+        elements.backBtn2.addEventListener('click', () => {
+            console.log('Back button 2 clicked');
+            showStep(2);
+        });
+        
+        elements.disconnectBtn.addEventListener('click', () => {
+            console.log('Disconnect button clicked');
+            if (state.peerConnection) {
+                state.peerConnection.close();
+                state.peerConnection = null;
+                state.dataChannel = null;
+            }
+            updateStatus('Disconnected');
+            showStep(1);
+        });
+        
+        // Camera functions
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                elements.video.srcObject = stream;
+                updateStatus('Camera started - point at QR code');
+            } catch (error) {
+                console.error('Camera error:', error);
+                updateStatus('Camera access denied or not available', 'error');
+            }
+        }
+        
+        function stopCamera() {
+            if (elements.video.srcObject) {
+                elements.video.srcObject.getTracks().forEach(track => track.stop());
+                elements.video.srcObject = null;
+            }
+        }
+        
+        // Initialize
+        console.log('Pair2Peer Simple initialized');
+        updateStatus('Ready to start pairing');
+    </script>
+</body>
+</html>

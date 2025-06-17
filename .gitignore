@@ -5,3 +5,11 @@ dist/
 .env
 .vite/
 coverage/
+
+# Dev server files
+.vite-*.pid
+.vite-*.port
+.vite-*.lock
+.vite-*.log
+.vite-*.error.log
+vite.log
