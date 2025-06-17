@@ -32,9 +32,9 @@ jobs:
       - name: Copy files to dist
         run: |
           cp index.html dist/
-          cp manifest.json dist/
-          cp favicon.ico dist/
-          cp -r public/* dist/ 2>/dev/null || true
+          cp public/manifest.json dist/
+          cp public/favicon.ico dist/
+          cp public/*.png dist/ 2>/dev/null || true
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
