@@ -41,9 +41,11 @@ class PeerPairApp {
   private torchEnabled = false;
 
   constructor() {
+    console.log('PeerPairApp initializing...');
     this.initializeElements();
     this.attachEventListeners();
     this.setState('idle');
+    console.log('PeerPairApp initialized successfully');
   }
 
   private initializeElements(): void {
@@ -125,6 +127,7 @@ class PeerPairApp {
 
   private async gatherOffer(): Promise<void> {
     try {
+      console.log('Creating WebRTC offer...');
       const { pc, dc, localSdp } = await createOfferPeer();
       this.ctx.pc = pc;
       this.ctx.dc = dc;
@@ -140,24 +143,32 @@ class PeerPairApp {
         caps: ['v1']
       };
 
+      console.log('Generating QR chunks...');
       this.ctx.qrChunks = await createQRChunks(header, this.ctx.localSdp);
+      console.log('QR chunks generated:', this.ctx.qrChunks.length);
       this.showOfferQR();
     } catch (err) {
+      console.error('Error in gatherOffer:', err);
       this.showError('Failed to create offer: ' + (err as Error).message);
     }
   }
 
   private async showOfferQR(): Promise<void> {
+    console.log('Showing offer QR, pair code:', this.ctx.pairCode);
     this.setState('show-offer-qr');
     this.elements['pair-code-display'].textContent = this.ctx.pairCode;
 
     const container = this.elements['qr-container'];
     container.innerHTML = '';
 
-    for (const chunk of this.ctx.qrChunks) {
+    console.log('Generating QR canvases for', this.ctx.qrChunks.length, 'chunks');
+    for (let i = 0; i < this.ctx.qrChunks.length; i++) {
+      const chunk = this.ctx.qrChunks[i];
+      console.log(`Generating QR canvas ${i + 1}/${this.ctx.qrChunks.length}`);
       const canvas = await generateQRCanvas(chunk);
       container.appendChild(canvas);
     }
+    console.log('QR canvases appended to container');
   }
 
   private async startScanning(): Promise<void> {
