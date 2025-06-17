@@ -150,11 +150,6 @@ class PeerPairApp {
   private async showOfferQR(): Promise<void> {
     this.setState('show-offer-qr');
     this.elements['pair-code-display'].textContent = this.ctx.pairCode;
-    
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(`Pair code: ${this.ctx.pairCode.split('').join(' ')}`);
-      speechSynthesis.speak(utterance);
-    }
 
     const container = this.elements['qr-container'];
     container.innerHTML = '';
