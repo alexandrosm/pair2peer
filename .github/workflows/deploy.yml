@@ -26,11 +26,15 @@ jobs:
         with:
           node-version: 20
           
-      - name: Install dependencies
-        run: npm install
+      - name: Create dist directory
+        run: mkdir -p dist
         
-      - name: Build
-        run: npm run build
+      - name: Copy files to dist
+        run: |
+          cp index.html dist/
+          cp manifest.json dist/
+          cp favicon.ico dist/
+          cp -r public/* dist/ 2>/dev/null || true
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
