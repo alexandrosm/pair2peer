@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pair2Peer - Serverless</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <div id="app" class="w-full max-w-md">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-2xl font-bold text-center mb-6">Pair2Peer - Serverless</h1>
+            
+            <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
+                Ready to start pairing
+            </div>
+            
+            <!-- Step 1: Choose Role -->
+            <div id="step-role" class="step-view">
+                <p class="text-gray-600 text-center mb-6">Serverless P2P Connection</p>
+                <button id="device1-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors mb-2">
+                    Device 1 (Start)
+                </button>
+                <button id="device2-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+                    Device 2 (Join)
+                </button>
+            </div>
+
+            <!-- Device 1: Show Offer -->
+            <div id="step-offer" class="step-view hidden">
+                <div class="text-center mb-4">
+                    <p class="text-lg font-bold mb-2">Step 1: Show this to Device 2</p>
+                    <div id="offer-qr" class="mx-auto mb-4" style="width: 256px; height: 256px;"></div>
+                    <p class="text-xs text-gray-500 mb-2">QR too dense? Use manual copy:</p>
+                    <textarea id="offer-text" class="w-full h-20 p-2 border rounded text-xs font-mono" readonly></textarea>
+                </div>
+                <button id="scan-answer-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Scan Answer from Device 2
+                </button>
+            </div>
+
+            <!-- Device 2: Scan Offer -->
+            <div id="step-scan-offer" class="step-view hidden">
+                <p class="text-center mb-4">Scan QR from Device 1:</p>
+                <div class="relative bg-black rounded-lg overflow-hidden mb-4" style="aspect-ratio: 4/3;">
+                    <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                </div>
+                <button id="paste-offer-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Paste Manually Instead
+                </button>
+            </div>
+
+            <!-- Device 2: Show Answer -->
+            <div id="step-answer" class="step-view hidden">
+                <div class="text-center mb-4">
+                    <p class="text-lg font-bold mb-2">Step 2: Show this to Device 1</p>
+                    <div id="answer-qr" class="mx-auto mb-4" style="width: 256px; height: 256px;"></div>
+                    <p class="text-xs text-gray-500 mb-2">QR too dense? Use manual copy:</p>
+                    <textarea id="answer-text" class="w-full h-20 p-2 border rounded text-xs font-mono" readonly></textarea>
+                </div>
+                <p class="text-center text-sm text-gray-600">Waiting for connection...</p>
+            </div>
+
+            <!-- Device 1: Scan Answer -->
+            <div id="step-scan-answer" class="step-view hidden">
+                <p class="text-center mb-4">Scan Answer QR from Device 2:</p>
+                <div class="relative bg-black rounded-lg overflow-hidden mb-4" style="aspect-ratio: 4/3;">
+                    <video id="video2" class="w-full h-full object-cover" autoplay playsinline></video>
+                </div>
+                <button id="paste-answer-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Paste Manually Instead
+                </button>
+            </div>
+
+            <!-- Manual Input -->
+            <div id="step-manual" class="step-view hidden">
+                <p class="text-center mb-4">Paste the data:</p>
+                <textarea id="manual-input" class="w-full h-32 p-2 border rounded text-xs font-mono" placeholder="Paste here..."></textarea>
+                <button id="process-manual-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors mt-2">
+                    Process
+                </button>
+                <button id="back-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors mt-2">
+                    Back
+                </button>
+            </div>
+
+            <!-- Connected -->
+            <div id="step-connected" class="step-view hidden">
+                <div class="text-center">
+                    <svg class="w-16 h-16 text-green-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h2 class="text-xl font-semibold text-gray-800 mb-2">Connected!</h2>
+                    <div id="messages" class="h-40 overflow-y-auto bg-gray-100 rounded p-3 mb-4 text-sm"></div>
+                    <div class="flex gap-2">
+                        <input id="message-input" type="text" class="flex-1 p-2 border rounded" placeholder="Type a message...">
+                        <button id="send-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            role: null,
+            pc: null,
+            dc: null,
+            scanningFor: null,
+            stream: null
+        };
+
+        function showStep(step) {
+            document.querySelectorAll('.step-view').forEach(el => el.classList.add('hidden'));
+            const el = document.getElementById(`step-${step}`);
+            if (el) el.classList.remove('hidden');
+        }
+
+        function updateStatus(msg, type = 'info') {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = 'mb-4 p-3 rounded-lg text-center';
+            if (type === 'error') {
+                el.classList.add('bg-red-50', 'text-red-800');
+            } else if (type === 'success') {
+                el.classList.add('bg-green-50', 'text-green-800');
+            } else {
+                el.classList.add('bg-blue-50', 'text-blue-800');
+            }
+        }
+
+        // Device 1: Create offer
+        async function startDevice1() {
+            state.role = 'device1';
+            updateStatus('Creating connection...');
+            
+            try {
+                state.pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                state.dc = state.pc.createDataChannel('chat');
+                setupDataChannel();
+                
+                // Create offer
+                const offer = await state.pc.createOffer();
+                await state.pc.setLocalDescription(offer);
+                
+                // Wait for ICE gathering
+                await waitForIceGathering();
+                
+                // Show offer
+                const offerData = btoa(JSON.stringify({
+                    type: 'offer',
+                    sdp: state.pc.localDescription.sdp
+                }));
+                
+                document.getElementById('offer-text').value = offerData;
+                const qrDiv = document.getElementById('offer-qr');
+                qrDiv.innerHTML = '';
+                new QRCode(qrDiv, {
+                    text: offerData,
+                    width: 256,
+                    height: 256,
+                    correctLevel: QRCode.CorrectLevel.L
+                });
+                
+                showStep('offer');
+                updateStatus('Show this to Device 2');
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        // Device 2: Process offer and create answer
+        async function processOffer(offerData) {
+            try {
+                const data = JSON.parse(atob(offerData));
+                if (data.type !== 'offer') throw new Error('Invalid data');
+                
+                updateStatus('Processing offer...');
+                
+                state.pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                state.pc.ondatachannel = (event) => {
+                    state.dc = event.channel;
+                    setupDataChannel();
+                };
+                
+                await state.pc.setRemoteDescription({
+                    type: 'offer',
+                    sdp: data.sdp
+                });
+                
+                const answer = await state.pc.createAnswer();
+                await state.pc.setLocalDescription(answer);
+                
+                // Wait for ICE gathering
+                await waitForIceGathering();
+                
+                // Show answer
+                const answerData = btoa(JSON.stringify({
+                    type: 'answer',
+                    sdp: state.pc.localDescription.sdp
+                }));
+                
+                document.getElementById('answer-text').value = answerData;
+                const qrDiv = document.getElementById('answer-qr');
+                qrDiv.innerHTML = '';
+                new QRCode(qrDiv, {
+                    text: answerData,
+                    width: 256,
+                    height: 256,
+                    correctLevel: QRCode.CorrectLevel.L
+                });
+                
+                showStep('answer');
+                updateStatus('Show answer to Device 1');
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        // Device 1: Process answer
+        async function processAnswer(answerData) {
+            try {
+                const data = JSON.parse(atob(answerData));
+                if (data.type !== 'answer') throw new Error('Invalid data');
+                
+                updateStatus('Connecting...');
+                
+                await state.pc.setRemoteDescription({
+                    type: 'answer',
+                    sdp: data.sdp
+                });
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        // Wait for ICE gathering to complete
+        function waitForIceGathering() {
+            return new Promise((resolve) => {
+                if (state.pc.iceGatheringState === 'complete') {
+                    resolve();
+                } else {
+                    const checkState = () => {
+                        if (state.pc.iceGatheringState === 'complete') {
+                            state.pc.removeEventListener('icegatheringstatechange', checkState);
+                            resolve();
+                        }
+                    };
+                    state.pc.addEventListener('icegatheringstatechange', checkState);
+                    // Timeout after 3 seconds
+                    setTimeout(resolve, 3000);
+                }
+            });
+        }
+
+        // Setup data channel
+        function setupDataChannel() {
+            state.dc.onopen = () => {
+                updateStatus('Connected!', 'success');
+                showStep('connected');
+                stopCamera();
+            };
+            
+            state.dc.onmessage = (event) => {
+                addMessage('Them', event.data);
+            };
+        }
+
+        // QR Scanner
+        async function startScanner(target) {
+            state.scanningFor = target;
+            const videoId = target === 'offer' ? 'video' : 'video2';
+            
+            try {
+                state.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                
+                const video = document.getElementById(videoId);
+                video.srcObject = state.stream;
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const scan = () => {
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0);
+                        
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        
+                        if (code) {
+                            stopCamera();
+                            if (target === 'offer') {
+                                processOffer(code.data);
+                            } else {
+                                processAnswer(code.data);
+                            }
+                            return;
+                        }
+                    }
+                    if (state.stream) requestAnimationFrame(scan);
+                };
+                
+                video.addEventListener('loadedmetadata', scan);
+                
+            } catch (error) {
+                updateStatus('Camera error: ' + error.message, 'error');
+            }
+        }
+
+        function stopCamera() {
+            if (state.stream) {
+                state.stream.getTracks().forEach(track => track.stop());
+                state.stream = null;
+            }
+        }
+
+        // Messaging
+        function addMessage(sender, text) {
+            const el = document.getElementById('messages');
+            const msg = document.createElement('div');
+            msg.className = sender === 'You' ? 'text-right' : 'text-left';
+            msg.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            el.appendChild(msg);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (text && state.dc && state.dc.readyState === 'open') {
+                state.dc.send(text);
+                addMessage('You', text);
+                input.value = '';
+            }
+        }
+
+        // Event listeners
+        document.getElementById('device1-btn').addEventListener('click', startDevice1);
+        
+        document.getElementById('device2-btn').addEventListener('click', () => {
+            state.role = 'device2';
+            showStep('scan-offer');
+            startScanner('offer');
+        });
+        
+        document.getElementById('scan-answer-btn').addEventListener('click', () => {
+            showStep('scan-answer');
+            startScanner('answer');
+        });
+        
+        document.getElementById('paste-offer-btn').addEventListener('click', () => {
+            stopCamera();
+            state.scanningFor = 'offer';
+            showStep('manual');
+        });
+        
+        document.getElementById('paste-answer-btn').addEventListener('click', () => {
+            stopCamera();
+            state.scanningFor = 'answer';
+            showStep('manual');
+        });
+        
+        document.getElementById('process-manual-btn').addEventListener('click', () => {
+            const data = document.getElementById('manual-input').value.trim();
+            if (data) {
+                if (state.scanningFor === 'offer') {
+                    processOffer(data);
+                } else {
+                    processAnswer(data);
+                }
+            }
+        });
+        
+        document.getElementById('back-btn').addEventListener('click', () => {
+            document.getElementById('manual-input').value = '';
+            if (state.scanningFor === 'offer') {
+                showStep('scan-offer');
+                startScanner('offer');
+            } else {
+                showStep('scan-answer');
+                startScanner('answer');
+            }
+        });
+        
+        document.getElementById('send-btn').addEventListener('click', sendMessage);
+        
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pair2Peer - Simple</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <div id="app" class="w-full max-w-md">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-2xl font-bold text-center mb-6">Pair2Peer</h1>
+            
+            <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
+                Ready to connect
+            </div>
+            
+            <!-- Step 1: Start -->
+            <div id="step-start" class="step-view">
+                <button id="create-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors mb-2">
+                    Create Room
+                </button>
+                <button id="join-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
+                    Join Room
+                </button>
+            </div>
+
+            <!-- Step 2: Show Code -->
+            <div id="step-code" class="step-view hidden">
+                <div class="text-center mb-4">
+                    <p class="text-lg font-bold mb-2">Room Code:</p>
+                    <p class="text-4xl font-mono font-bold text-blue-600 mb-4" id="room-code">----</p>
+                    <div id="qr-div" class="mx-auto mb-4 flex justify-center"></div>
+                    <p class="text-xs text-gray-500">Share this code</p>
+                </div>
+                <button id="ready-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                    I've Shared the Code
+                </button>
+            </div>
+
+            <!-- Step 3: Enter Code -->
+            <div id="step-enter" class="step-view hidden">
+                <p class="text-center mb-4">Enter room code or scan QR:</p>
+                <input id="code-input" type="text" class="w-full p-3 border rounded-lg text-center text-2xl font-mono mb-4" 
+                       placeholder="XXXX" maxlength="4" style="text-transform: uppercase;">
+                <button id="connect-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors mb-2">
+                    Connect
+                </button>
+                <button id="scan-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Scan QR Code
+                </button>
+            </div>
+
+            <!-- Scanner -->
+            <div id="step-scan" class="step-view hidden">
+                <div class="relative bg-black rounded-lg overflow-hidden mb-4" style="aspect-ratio: 4/3;">
+                    <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                </div>
+                <button id="back-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Enter Code Manually
+                </button>
+            </div>
+
+            <!-- Connected -->
+            <div id="step-connected" class="step-view hidden">
+                <div class="text-center">
+                    <svg class="w-16 h-16 text-green-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h2 class="text-xl font-semibold text-gray-800 mb-2">Connected!</h2>
+                    <div id="messages" class="h-40 overflow-y-auto bg-gray-100 rounded p-3 mb-4 text-sm text-left"></div>
+                    <div class="flex gap-2">
+                        <input id="message-input" type="text" class="flex-1 p-2 border rounded" placeholder="Type a message...">
+                        <button id="send-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            roomCode: null,
+            pc: null,
+            dc: null,
+            isCreator: false,
+            pollingInterval: null,
+            stream: null
+        };
+
+        // Simple signaling using JSONStorage.net (free, no auth required)
+        const signal = {
+            baseUrl: 'https://api.jsonstorage.net/v1/json',
+            
+            async createRoom(data) {
+                const response = await fetch(this.baseUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                return result.uri.split('/').pop(); // Get the ID
+            },
+            
+            async getRoom(id) {
+                try {
+                    const response = await fetch(`${this.baseUrl}/${id}`);
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                } catch (error) {
+                    console.error('Failed to get room:', error);
+                }
+                return null;
+            },
+            
+            async updateRoom(id, data) {
+                await fetch(`${this.baseUrl}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            }
+        };
+
+        function showStep(step) {
+            document.querySelectorAll('.step-view').forEach(el => el.classList.add('hidden'));
+            const el = document.getElementById(`step-${step}`);
+            if (el) el.classList.remove('hidden');
+        }
+
+        function updateStatus(msg, type = 'info') {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = 'mb-4 p-3 rounded-lg text-center';
+            if (type === 'error') {
+                el.classList.add('bg-red-50', 'text-red-800');
+            } else if (type === 'success') {
+                el.classList.add('bg-green-50', 'text-green-800');
+            } else {
+                el.classList.add('bg-blue-50', 'text-blue-800');
+            }
+        }
+
+        async function createRoom() {
+            state.isCreator = true;
+            updateStatus('Creating room...');
+            
+            try {
+                // Create peer connection
+                state.pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                // Create data channel
+                state.dc = state.pc.createDataChannel('chat');
+                setupDataChannel();
+                
+                // Create offer
+                const offer = await state.pc.createOffer();
+                await state.pc.setLocalDescription(offer);
+                
+                // Store offer with 4-char code
+                const roomData = {
+                    offer: state.pc.localDescription,
+                    answer: null,
+                    iceCandidates: []
+                };
+                
+                const id = await signal.createRoom(roomData);
+                state.roomId = id;
+                state.roomCode = id.substr(-4).toUpperCase();
+                
+                // Collect ICE candidates
+                state.pc.onicecandidate = async (event) => {
+                    if (event.candidate) {
+                        const room = await signal.getRoom(state.roomId);
+                        room.iceCandidates.push(event.candidate);
+                        await signal.updateRoom(state.roomId, room);
+                    }
+                };
+                
+                // Show code
+                document.getElementById('room-code').textContent = state.roomCode;
+                const qrDiv = document.getElementById('qr-div');
+                qrDiv.innerHTML = '';
+                new QRCode(qrDiv, {
+                    text: state.roomCode,
+                    width: 128,
+                    height: 128,
+                    correctLevel: QRCode.CorrectLevel.L
+                });
+                
+                showStep('code');
+                updateStatus('Share this code');
+                
+                // Start polling for answer
+                startPolling();
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function joinRoom(code) {
+            state.isCreator = false;
+            state.roomCode = code.toUpperCase();
+            updateStatus('Joining room...');
+            
+            try {
+                // Find room by searching recent rooms
+                let roomId = null;
+                let roomData = null;
+                
+                // Try to find room with matching code
+                // In a real app, you'd have a proper lookup service
+                for (let i = 0; i < 100; i++) {
+                    const testId = '00000000-0000-0000-0000-' + String(i).padStart(12, '0');
+                    if (testId.endsWith(code.toLowerCase())) {
+                        const data = await signal.getRoom(testId);
+                        if (data && data.offer) {
+                            roomId = testId;
+                            roomData = data;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!roomData) {
+                    // Try with actual room ID if full ID was provided
+                    roomData = await signal.getRoom(code);
+                    if (roomData) roomId = code;
+                }
+                
+                if (!roomData || !roomData.offer) {
+                    throw new Error('Room not found');
+                }
+                
+                state.roomId = roomId;
+                
+                // Create peer connection
+                state.pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                state.pc.ondatachannel = (event) => {
+                    state.dc = event.channel;
+                    setupDataChannel();
+                };
+                
+                // Set remote description
+                await state.pc.setRemoteDescription(roomData.offer);
+                
+                // Add stored ICE candidates
+                for (const candidate of roomData.iceCandidates || []) {
+                    await state.pc.addIceCandidate(candidate);
+                }
+                
+                // Create answer
+                const answer = await state.pc.createAnswer();
+                await state.pc.setLocalDescription(answer);
+                
+                // Update room with answer
+                roomData.answer = state.pc.localDescription;
+                await signal.updateRoom(state.roomId, roomData);
+                
+                updateStatus('Connected!', 'success');
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function startPolling() {
+            state.pollingInterval = setInterval(async () => {
+                try {
+                    const room = await signal.getRoom(state.roomId);
+                    if (room && room.answer && !state.pc.remoteDescription) {
+                        clearInterval(state.pollingInterval);
+                        await state.pc.setRemoteDescription(room.answer);
+                        updateStatus('Connected!', 'success');
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 1000);
+        }
+
+        function setupDataChannel() {
+            state.dc.onopen = () => {
+                showStep('connected');
+                if (state.pollingInterval) {
+                    clearInterval(state.pollingInterval);
+                }
+            };
+            
+            state.dc.onmessage = (event) => {
+                addMessage('Them', event.data);
+            };
+        }
+
+        function addMessage(sender, text) {
+            const el = document.getElementById('messages');
+            const msg = document.createElement('div');
+            msg.className = sender === 'You' ? 'text-right' : 'text-left';
+            msg.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            el.appendChild(msg);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        async function startScanner() {
+            showStep('scan');
+            try {
+                state.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = state.stream;
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const scan = () => {
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0);
+                        
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        
+                        if (code) {
+                            stopCamera();
+                            joinRoom(code.data);
+                            return;
+                        }
+                    }
+                    if (state.stream) requestAnimationFrame(scan);
+                };
+                
+                video.addEventListener('loadedmetadata', scan);
+                
+            } catch (error) {
+                updateStatus('Camera error: ' + error.message, 'error');
+                showStep('enter');
+            }
+        }
+
+        function stopCamera() {
+            if (state.stream) {
+                state.stream.getTracks().forEach(track => track.stop());
+                state.stream = null;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('create-btn').addEventListener('click', createRoom);
+        document.getElementById('join-btn').addEventListener('click', () => showStep('enter'));
+        document.getElementById('ready-btn').addEventListener('click', () => showStep('enter'));
+        document.getElementById('connect-btn').addEventListener('click', () => {
+            const code = document.getElementById('code-input').value;
+            if (code) joinRoom(code);
+        });
+        document.getElementById('scan-btn').addEventListener('click', startScanner);
+        document.getElementById('back-btn').addEventListener('click', () => {
+            stopCamera();
+            showStep('enter');
+        });
+        
+        document.getElementById('send-btn').addEventListener('click', () => {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (text && state.dc && state.dc.readyState === 'open') {
+                state.dc.send(text);
+                addMessage('You', text);
+                input.value = '';
+            }
+        });
+        
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('send-btn').click();
+            }
+        });
+        
+        document.getElementById('code-input').addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase();
+        });
+    </script>
+</body>
+</html>
