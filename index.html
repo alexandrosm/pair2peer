@@ -10,6 +10,7 @@
     <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <script src="./base45-lib.js"></script>
+    <script src="./sdp-compact.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md">
@@ -37,9 +38,10 @@
                     <p class="text-lg font-bold mb-2" id="show-title">Share this:</p>
                     <div id="qr-display" class="mx-auto mb-4 flex justify-center"></div>
                     <div class="text-xs text-gray-500 mb-2">
-                        <p>QR Size: <span id="qr-size">0</span> bytes (Base45)</p>
+                        <p>QR Size: <span id="qr-size">0</span> chars</p>
+                        <p>QR Bits: <span id="qr-bits">0</span> bits</p>
                         <p>Compression: <span id="compression-ratio">0</span>%</p>
-                        <p>Savings vs Base64: <span id="base64-savings">0</span>%</p>
+                        <p>Method: Ultra-compact + Base45</p>
                     </div>
                     <details class="text-xs">
                         <summary class="cursor-pointer text-blue-600">Manual copy</summary>
@@ -216,10 +218,10 @@
                     }
                 });
                 
-                // Create minimal offer data (with ICE candidates bundled in SDP)
+                // Create ultra-compact offer data
                 const offerData = {
                     t: 'o', // type: offer
-                    s: minimizeSDP(state.pc.localDescription.sdp)
+                    ...compactSDP(state.pc.localDescription.sdp)
                 };
                 
                 // Store for stats
@@ -251,10 +253,11 @@
                     setupDataChannel();
                 };
                 
-                // Set remote description
+                // Set remote description (expand from compact format)
+                const expandedSDP = data.s ? data.s : expandSDP(data, 'offer');
                 await state.pc.setRemoteDescription({
                     type: 'offer',
-                    sdp: data.s
+                    sdp: expandedSDP
                 });
                 
                 // ICE candidates are now bundled in the SDP
@@ -277,10 +280,10 @@
                     }
                 });
                 
-                // Create minimal answer (with ICE candidates bundled in SDP)
+                // Create ultra-compact answer data
                 const answerData = {
                     t: 'a', // type: answer
-                    s: minimizeSDP(state.pc.localDescription.sdp)
+                    ...compactSDP(state.pc.localDescription.sdp)
                 };
                 
                 // Store for stats
@@ -302,10 +305,11 @@
                 
                 updateStatus('Connecting...');
                 
-                // Set remote description
+                // Set remote description (expand from compact format)
+                const expandedSDP = data.s ? data.s : expandSDP(data, 'answer');
                 await state.pc.setRemoteDescription({
                     type: 'answer',
-                    sdp: data.s
+                    sdp: expandedSDP
                 });
                 
                 // ICE candidates are now bundled in the SDP
@@ -320,15 +324,14 @@
             document.getElementById('data-text').value = data;
             
             // Calculate stats
-            const compressedSize = pako.deflate(JSON.stringify(state.lastData || {})).length;
-            const base64Size = btoa(String.fromCharCode(...pako.deflate(JSON.stringify(state.lastData || {})))).length;
-            const base45Size = data.length;
+            const jsonSize = JSON.stringify(state.lastData || {}).length;
+            const qrSize = data.length;
+            const qrBits = Math.ceil(qrSize * 5.5); // Base45 uses alphanumeric mode
             
-            document.getElementById('qr-size').textContent = base45Size;
+            document.getElementById('qr-size').textContent = qrSize;
+            document.getElementById('qr-bits').textContent = qrBits;
             document.getElementById('compression-ratio').textContent = 
-                Math.round((1 - compressedSize / JSON.stringify(state.lastData || {}).length) * 100);
-            document.getElementById('base64-savings').textContent = 
-                Math.round((1 - base45Size / base64Size) * 100);
+                Math.round((1 - qrSize / jsonSize) * 100);
             
             // Generate QR
             const qrDiv = document.getElementById('qr-display');
