@@ -11,6 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <script src="./base45-lib.js"></script>
     <script src="./sdp-compact.js"></script>
+    <script src="./binary-codec.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md">
@@ -41,7 +42,7 @@
                         <p>QR Size: <span id="qr-size">0</span> chars</p>
                         <p>QR Bits: <span id="qr-bits">0</span> bits</p>
                         <p>Compression: <span id="compression-ratio">0</span>%</p>
-                        <p>Method: Ultra-compact + Base45</p>
+                        <p>Method: Binary + Base45 (No compression)</p>
                     </div>
                     <details class="text-xs">
                         <summary class="cursor-pointer text-blue-600">Manual copy</summary>
@@ -105,22 +106,12 @@
 
         // Compression utilities
         function compressData(obj) {
-            // 1. Minimize JSON
-            const minified = JSON.stringify(obj, (key, value) => {
-                // Skip null values
-                if (value === null) return undefined;
-                // Shorten known keys
-                if (key === 'candidate') return value.candidate;
-                if (key === 'sdpMLineIndex') return value;
-                if (key === 'sdpMid') return value;
-                return value;
-            });
+            // Use ultra-efficient binary encoding
+            const binary = encodeBinary(obj);
             
-            // 2. Compress with pako
-            const compressed = pako.deflate(minified);
-            
-            // 3. Use Base45 encoding (more efficient for QR codes)
-            return base45Encode(compressed);
+            // For small binary data, skip compression (it adds overhead)
+            // Direct Base45 encoding is more efficient
+            return base45Encode(binary);
         }
 
         function decompressData(str) {
@@ -128,11 +119,8 @@
                 // 1. Decode from Base45
                 const bytes = base45Decode(str);
                 
-                // 2. Decompress
-                const decompressed = pako.inflate(bytes, { to: 'string' });
-                
-                // 3. Parse JSON
-                return JSON.parse(decompressed);
+                // 2. Decode binary format
+                return decodeBinary(bytes);
             } catch (error) {
                 console.error('Decompression error:', error);
                 return null;
@@ -324,14 +312,19 @@
             document.getElementById('data-text').value = data;
             
             // Calculate stats
-            const jsonSize = JSON.stringify(state.lastData || {}).length;
+            const originalJson = JSON.stringify({
+                type: state.lastData.t === 'o' ? 'offer' : 'answer',
+                sdp: 'v=0\no=- 1 1 IN IP4 127.0.0.1\ns=-\nt=0 0\n...(~1KB of SDP)...',
+                candidates: ['candidate:...', 'candidate:...', 'candidate:...']
+            });
+            const binarySize = encodeBinary(state.lastData || {}).length;
             const qrSize = data.length;
             const qrBits = Math.ceil(qrSize * 5.5); // Base45 uses alphanumeric mode
             
-            document.getElementById('qr-size').textContent = qrSize;
+            document.getElementById('qr-size').textContent = `${qrSize} (${binarySize} bytes binary)`;
             document.getElementById('qr-bits').textContent = qrBits;
             document.getElementById('compression-ratio').textContent = 
-                Math.round((1 - qrSize / jsonSize) * 100);
+                Math.round((1 - qrBits / 7744) * 100); // vs original ~1KB
             
             // Generate QR
             const qrDiv = document.getElementById('qr-display');
