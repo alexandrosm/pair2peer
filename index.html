@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <script src="./base45-lib.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md">
@@ -36,8 +37,9 @@
                     <p class="text-lg font-bold mb-2" id="show-title">Share this:</p>
                     <div id="qr-display" class="mx-auto mb-4 flex justify-center"></div>
                     <div class="text-xs text-gray-500 mb-2">
-                        <p>QR Size: <span id="qr-size">0</span> bytes</p>
+                        <p>QR Size: <span id="qr-size">0</span> bytes (Base45)</p>
                         <p>Compression: <span id="compression-ratio">0</span>%</p>
+                        <p>Savings vs Base64: <span id="base64-savings">0</span>%</p>
                     </div>
                     <details class="text-xs">
                         <summary class="cursor-pointer text-blue-600">Manual copy</summary>
@@ -95,7 +97,8 @@
             pc: null,
             dc: null,
             stream: null,
-            scanTarget: null
+            scanTarget: null,
+            lastData: null
         };
 
         // Compression utilities
@@ -114,30 +117,19 @@
             // 2. Compress with pako
             const compressed = pako.deflate(minified);
             
-            // 3. Convert to base64
-            const base64 = btoa(String.fromCharCode(...compressed));
-            
-            // 4. Make URL safe
-            return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+            // 3. Use Base45 encoding (more efficient for QR codes)
+            return base45Encode(compressed);
         }
 
         function decompressData(str) {
             try {
-                // 1. Restore base64
-                let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-                while (base64.length % 4) base64 += '=';
+                // 1. Decode from Base45
+                const bytes = base45Decode(str);
                 
-                // 2. Convert from base64
-                const binary = atob(base64);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    bytes[i] = binary.charCodeAt(i);
-                }
-                
-                // 3. Decompress
+                // 2. Decompress
                 const decompressed = pako.inflate(bytes, { to: 'string' });
                 
-                // 4. Parse JSON
+                // 3. Parse JSON
                 return JSON.parse(decompressed);
             } catch (error) {
                 console.error('Decompression error:', error);
@@ -232,6 +224,9 @@
                     c: candidates
                 };
                 
+                // Store for stats
+                state.lastData = offerData;
+                
                 // Compress and show
                 const compressed = compressData(offerData);
                 showQR(compressed, 'Step 1: Show to Device 2');
@@ -299,6 +294,9 @@
                     c: candidates
                 };
                 
+                // Store for stats
+                state.lastData = answerData;
+                
                 // Compress and show
                 const compressed = compressData(answerData);
                 showQR(compressed, 'Step 2: Show to Device 1');
@@ -338,11 +336,16 @@
             document.getElementById('show-title').textContent = title;
             document.getElementById('data-text').value = data;
             
-            // Show stats
-            const originalSize = data.length * 2; // Rough estimate
-            document.getElementById('qr-size').textContent = data.length;
+            // Calculate stats
+            const compressedSize = pako.deflate(JSON.stringify(state.lastData || {})).length;
+            const base64Size = btoa(String.fromCharCode(...pako.deflate(JSON.stringify(state.lastData || {})))).length;
+            const base45Size = data.length;
+            
+            document.getElementById('qr-size').textContent = base45Size;
             document.getElementById('compression-ratio').textContent = 
-                Math.round((1 - data.length / originalSize) * 100);
+                Math.round((1 - compressedSize / JSON.stringify(state.lastData || {}).length) * 100);
+            document.getElementById('base64-savings').textContent = 
+                Math.round((1 - base45Size / base64Size) * 100);
             
             // Generate QR
             const qrDiv = document.getElementById('qr-display');
