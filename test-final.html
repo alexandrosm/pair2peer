@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Final WebRTC Compression Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .pass { 
+            color: #22c55e; 
+            font-weight: bold; 
+        }
+        .fail { 
+            color: #ef4444; 
+            font-weight: bold; 
+        }
+        .info { 
+            color: #3b82f6; 
+        }
+        .warning {
+            color: #f59e0b;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .summary {
+            background: #f0f9ff;
+            border: 2px solid #0284c7;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        .metric {
+            display: inline-block;
+            margin: 10px 20px 10px 0;
+            padding: 10px 15px;
+            background: #dbeafe;
+            border-radius: 6px;
+        }
+        h1 {
+            color: #1e293b;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #475569;
+            margin-top: 0;
+        }
+        .status {
+            font-size: 24px;
+            margin: 0 10px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Final WebRTC Compression Test Suite</h1>
+    <p>Testing P2PQR/Pair2Peer WebRTC compression with ASN.1 UPER encoding</p>
+    
+    <button onclick="runAllTests()">Run All Tests</button>
+    
+    <div id="test1" class="test-section">
+        <h2>Test 1: SDP Compaction & Expansion</h2>
+        <div id="test1-output"></div>
+    </div>
+    
+    <div id="test2" class="test-section">
+        <h2>Test 2: ASN.1 UPER Encoding/Decoding</h2>
+        <div id="test2-output"></div>
+    </div>
+    
+    <div id="test3" class="test-section">
+        <h2>Test 3: Browser SDP Parsing</h2>
+        <div id="test3-output"></div>
+    </div>
+    
+    <div id="test4" class="test-section">
+        <h2>Test 4: Full Pipeline (Compress → Decompress → Parse)</h2>
+        <div id="test4-output"></div>
+    </div>
+    
+    <div id="test5" class="test-section">
+        <h2>Test 5: Simulated P2P Connection</h2>
+        <div id="test5-output"></div>
+    </div>
+    
+    <div id="summary" class="summary" style="display:none;">
+        <h2>📊 Test Summary</h2>
+        <div id="summary-content"></div>
+    </div>
+
+    <script type="module">
+        import { compactSDP, expandSDP } from './sdp-compact.js';
+        import { encodeWebRTCData, decodeWebRTCData } from './asn1-uper-codec.js';
+        
+        let testResults = {
+            total: 0,
+            passed: 0,
+            failed: 0
+        };
+        
+        function log(testId, message, type = '') {
+            const output = document.getElementById(`${testId}-output`);
+            const div = document.createElement('div');
+            div.className = type;
+            
+            if (type === 'pass') {
+                div.innerHTML = `✅ ${message}`;
+                testResults.passed++;
+            } else if (type === 'fail') {
+                div.innerHTML = `❌ ${message}`;
+                testResults.failed++;
+            } else if (type === 'info') {
+                div.innerHTML = `ℹ️ ${message}`;
+            } else if (type === 'warning') {
+                div.innerHTML = `⚠️ ${message}`;
+            } else {
+                div.textContent = message;
+            }
+            
+            output.appendChild(div);
+            
+            if (type === 'pass' || type === 'fail') {
+                testResults.total++;
+            }
+        }
+        
+        function logPre(testId, content, label = '') {
+            const output = document.getElementById(`${testId}-output`);
+            if (label) {
+                const labelDiv = document.createElement('div');
+                labelDiv.textContent = label + ':';
+                labelDiv.style.marginTop = '10px';
+                labelDiv.style.fontWeight = 'bold';
+                output.appendChild(labelDiv);
+            }
+            const pre = document.createElement('pre');
+            pre.textContent = typeof content === 'object' ? JSON.stringify(content, null, 2) : content;
+            output.appendChild(pre);
+        }
+        
+        function clearTest(testId) {
+            document.getElementById(`${testId}-output`).innerHTML = '';
+        }
+        
+        // Test 1: SDP Compaction & Expansion
+        async function test1() {
+            clearTest('test1');
+            log('test1', 'Starting SDP compaction test...');
+            
+            try {
+                // Create a real browser offer
+                const pc = new RTCPeerConnection();
+                pc.createDataChannel('test');
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                log('test1', `Original SDP size: ${offer.sdp.length} characters`, 'info');
+                
+                // Compact the SDP
+                const compacted = compactSDP(offer.sdp);
+                log('test1', 'SDP compacted successfully', 'pass');
+                logPre('test1', compacted, 'Compacted data');
+                
+                // Check all required fields
+                if (!compacted.u || !compacted.p || !compacted.f || !compacted.s) {
+                    log('test1', 'Missing required fields in compacted data', 'fail');
+                    return;
+                }
+                
+                // Expand back
+                const expanded = expandSDP(compacted);
+                log('test1', `Expanded SDP size: ${expanded.length} characters`, 'info');
+                
+                // Verify critical fields are preserved
+                const criticalFields = ['ice-ufrag:', 'ice-pwd:', 'fingerprint:', 'setup:'];
+                let allFieldsPresent = true;
+                
+                for (const field of criticalFields) {
+                    if (!expanded.includes(`a=${field}`)) {
+                        log('test1', `Missing ${field} in expanded SDP`, 'fail');
+                        allFieldsPresent = false;
+                    }
+                }
+                
+                if (allFieldsPresent) {
+                    log('test1', 'All critical fields preserved', 'pass');
+                }
+                
+                // Check line endings
+                if (expanded.endsWith('\r\n')) {
+                    log('test1', 'Expanded SDP has correct trailing CRLF', 'pass');
+                } else {
+                    log('test1', 'Expanded SDP missing trailing CRLF', 'fail');
+                }
+                
+                pc.close();
+            } catch (e) {
+                log('test1', `Error: ${e.message}`, 'fail');
+                console.error(e);
+            }
+        }
+        
+        // Test 2: ASN.1 UPER Encoding/Decoding
+        async function test2() {
+            clearTest('test2');
+            log('test2', 'Starting ASN.1 UPER encoding test...');
+            
+            try {
+                const testData = {
+                    t: 'o',
+                    u: 'test123',
+                    p: 'password123456789012345',
+                    f: 'AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89',
+                    s: 'a',
+                    c: ['h,192.168.1.100:54321,1', 's,203.0.113.1:54321,192.168.1.100:54321,1']
+                };
+                
+                // Encode
+                const encoded = encodeWebRTCData(testData);
+                log('test2', `Encoded to ${encoded.length} bytes`, 'info');
+                
+                // Show hex dump
+                const hex = Array.from(encoded).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                log('test2', `Hex: ${hex.substring(0, 50)}...`, 'info');
+                
+                // Decode
+                const decoded = decodeWebRTCData(encoded);
+                log('test2', 'Decoded successfully', 'pass');
+                logPre('test2', decoded, 'Decoded data');
+                
+                // Verify fields match
+                const fieldsMatch = 
+                    decoded.t === testData.t &&
+                    decoded.u === testData.u &&
+                    decoded.p === testData.p &&
+                    decoded.s === testData.s;
+                
+                if (fieldsMatch) {
+                    log('test2', 'All fields match after decode', 'pass');
+                } else {
+                    log('test2', 'Fields do not match after decode', 'fail');
+                    log('test2', `Expected ufrag: "${testData.u}", got: "${decoded.u}"`, 'warning');
+                    log('test2', `Expected pwd: "${testData.p}", got: "${decoded.p}"`, 'warning');
+                }
+                
+                // Check fingerprint
+                if (decoded.f && decoded.f.replace(/:/g, '').toLowerCase() === testData.f.replace(/:/g, '').toLowerCase()) {
+                    log('test2', 'Fingerprint matches', 'pass');
+                } else {
+                    log('test2', 'Fingerprint mismatch', 'fail');
+                }
+                
+            } catch (e) {
+                log('test2', `Error: ${e.message}`, 'fail');
+                console.error(e);
+            }
+        }
+        
+        // Test 3: Browser SDP Parsing
+        async function test3() {
+            clearTest('test3');
+            log('test3', 'Starting browser SDP parsing test...');
+            
+            try {
+                // Test with minimal values
+                const testData = {
+                    u: 'TEST',
+                    p: 'TESTPASSWORD123456789012',
+                    f: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                    s: 'a',
+                    c: []
+                };
+                
+                const sdp = expandSDP(testData);
+                log('test3', 'Generated test SDP', 'info');
+                
+                // Try to parse it
+                const pc = new RTCPeerConnection();
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdp });
+                log('test3', 'Browser accepted minimal SDP', 'pass');
+                pc.close();
+                
+                // Test with candidates
+                testData.c = ['h,192.168.1.100:50000,1', 's,203.0.113.1:50000,192.168.1.100:50000,1'];
+                const sdpWithCandidates = expandSDP(testData);
+                
+                const pc2 = new RTCPeerConnection();
+                await pc2.setRemoteDescription({ type: 'offer', sdp: sdpWithCandidates });
+                log('test3', 'Browser accepted SDP with candidates', 'pass');
+                pc2.close();
+                
+                // Verify SDP structure
+                const lines = sdpWithCandidates.split('\r\n');
+                const hasCandidates = lines.some(l => l.startsWith('a=candidate:'));
+                
+                if (hasCandidates) {
+                    log('test3', 'Candidates properly included in SDP', 'pass');
+                } else {
+                    log('test3', 'No candidates found in SDP', 'fail');
+                }
+                
+            } catch (e) {
+                log('test3', `Error: ${e.message}`, 'fail');
+                logPre('test3', e.stack);
+            }
+        }
+        
+        // Test 4: Full Pipeline
+        async function test4() {
+            clearTest('test4');
+            log('test4', 'Starting full pipeline test...');
+            
+            try {
+                // Create real offer
+                const pc1 = new RTCPeerConnection();
+                pc1.createDataChannel('test');
+                const offer = await pc1.createOffer();
+                await pc1.setLocalDescription(offer);
+                
+                log('test4', `Original SDP: ${offer.sdp.length} chars`, 'info');
+                
+                // Full compression
+                const compacted = compactSDP(offer.sdp);
+                const offerData = { t: 'o', ...compacted };
+                const binary = encodeWebRTCData(offerData);
+                
+                // Convert to base64 for QR
+                const base64 = btoa(String.fromCharCode(...binary));
+                log('test4', `Compressed to: ${base64.length} chars (${binary.length} bytes)`, 'info');
+                log('test4', `Compression ratio: ${Math.round((1 - base64.length / offer.sdp.length) * 100)}%`, 'info');
+                
+                // Full decompression
+                const binaryDecoded = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                const decodedData = decodeWebRTCData(binaryDecoded);
+                const expandedSDP = expandSDP(decodedData);
+                
+                log('test4', `Decompressed to: ${expandedSDP.length} chars`, 'info');
+                
+                // Test if browser accepts it
+                const pc2 = new RTCPeerConnection();
+                await pc2.setRemoteDescription({ type: 'offer', sdp: expandedSDP });
+                log('test4', 'Browser accepted decompressed SDP', 'pass');
+                
+                // Verify we can create an answer
+                const answer = await pc2.createAnswer();
+                await pc2.setLocalDescription(answer);
+                log('test4', 'Successfully created answer', 'pass');
+                
+                pc1.close();
+                pc2.close();
+                
+            } catch (e) {
+                log('test4', `Error: ${e.message}`, 'fail');
+                console.error(e);
+            }
+        }
+        
+        // Test 5: Simulated P2P Connection
+        async function test5() {
+            clearTest('test5');
+            log('test5', 'Starting simulated P2P connection test...');
+            
+            try {
+                // Device 1: Create offer
+                const pc1 = new RTCPeerConnection();
+                const dc1 = pc1.createDataChannel('test', { ordered: true });
+                
+                let dc1Open = false;
+                dc1.onopen = () => {
+                    dc1Open = true;
+                    log('test5', 'Device 1: Data channel opened', 'pass');
+                };
+                
+                const offer = await pc1.createOffer();
+                await pc1.setLocalDescription(offer);
+                log('test5', 'Device 1: Created offer', 'info');
+                
+                // Compress offer (simulate QR code)
+                const compactedOffer = compactSDP(offer.sdp);
+                const offerData = { t: 'o', ...compactedOffer };
+                const offerBinary = encodeWebRTCData(offerData);
+                const offerBase64 = btoa(String.fromCharCode(...offerBinary));
+                log('test5', `Offer compressed to ${offerBase64.length} chars`, 'info');
+                
+                // Device 2: Receive and process offer
+                const offerBinaryDecoded = Uint8Array.from(atob(offerBase64), c => c.charCodeAt(0));
+                const decodedOffer = decodeWebRTCData(offerBinaryDecoded);
+                const expandedOffer = expandSDP(decodedOffer);
+                
+                const pc2 = new RTCPeerConnection();
+                let dc2;
+                
+                pc2.ondatachannel = (e) => {
+                    dc2 = e.channel;
+                    log('test5', 'Device 2: Data channel received', 'info');
+                    
+                    dc2.onopen = () => {
+                        log('test5', 'Device 2: Data channel opened', 'pass');
+                        
+                        // Test sending message
+                        if (dc1Open) {
+                            dc1.send('Hello from Device 1');
+                            log('test5', 'Message sent from Device 1', 'info');
+                        }
+                    };
+                    
+                    dc2.onmessage = (e) => {
+                        log('test5', `Device 2 received: "${e.data}"`, 'pass');
+                    };
+                };
+                
+                await pc2.setRemoteDescription({ type: 'offer', sdp: expandedOffer });
+                log('test5', 'Device 2: Set remote description', 'pass');
+                
+                const answer = await pc2.createAnswer();
+                await pc2.setLocalDescription(answer);
+                log('test5', 'Device 2: Created answer', 'info');
+                
+                // Compress answer (simulate QR code)
+                const compactedAnswer = compactSDP(answer.sdp);
+                const answerData = { t: 'a', ...compactedAnswer };
+                const answerBinary = encodeWebRTCData(answerData);
+                const answerBase64 = btoa(String.fromCharCode(...answerBinary));
+                log('test5', `Answer compressed to ${answerBase64.length} chars`, 'info');
+                
+                // Device 1: Receive answer
+                const answerBinaryDecoded = Uint8Array.from(atob(answerBase64), c => c.charCodeAt(0));
+                const decodedAnswer = decodeWebRTCData(answerBinaryDecoded);
+                const expandedAnswer = expandSDP(decodedAnswer, 'answer');
+                
+                await pc1.setRemoteDescription({ type: 'answer', sdp: expandedAnswer });
+                log('test5', 'Device 1: Set remote description', 'pass');
+                
+                // Add ICE candidates if needed
+                pc1.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        // In real app, these would be exchanged
+                        pc2.addIceCandidate(e.candidate);
+                    }
+                };
+                
+                pc2.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        // In real app, these would be exchanged
+                        pc1.addIceCandidate(e.candidate);
+                    }
+                };
+                
+                // Check connection states
+                setTimeout(() => {
+                    log('test5', `PC1 state: ${pc1.connectionState}`, 'info');
+                    log('test5', `PC2 state: ${pc2.connectionState}`, 'info');
+                    
+                    if (pc1.connectionState === 'connected' || pc1.connectionState === 'connecting') {
+                        log('test5', 'Connection established or connecting', 'pass');
+                    }
+                    
+                    pc1.close();
+                    pc2.close();
+                }, 1000);
+                
+            } catch (e) {
+                log('test5', `Error: ${e.message}`, 'fail');
+                console.error(e);
+            }
+        }
+        
+        // Run all tests
+        async function runAllTests() {
+            testResults = { total: 0, passed: 0, failed: 0 };
+            document.getElementById('summary').style.display = 'none';
+            
+            console.log('Starting all tests...');
+            
+            await test1();
+            await new Promise(r => setTimeout(r, 100));
+            
+            await test2();
+            await new Promise(r => setTimeout(r, 100));
+            
+            await test3();
+            await new Promise(r => setTimeout(r, 100));
+            
+            await test4();
+            await new Promise(r => setTimeout(r, 100));
+            
+            await test5();
+            await new Promise(r => setTimeout(r, 1500)); // Wait for connection states
+            
+            // Show summary
+            showSummary();
+        }
+        
+        function showSummary() {
+            const summary = document.getElementById('summary');
+            const content = document.getElementById('summary-content');
+            
+            const passRate = testResults.total > 0 
+                ? Math.round((testResults.passed / testResults.total) * 100) 
+                : 0;
+            
+            let status = '';
+            let statusIcon = '';
+            
+            if (passRate === 100) {
+                status = 'All tests passed!';
+                statusIcon = '🎉';
+            } else if (passRate >= 80) {
+                status = 'Most tests passed';
+                statusIcon = '✅';
+            } else if (passRate >= 50) {
+                status = 'Some tests failed';
+                statusIcon = '⚠️';
+            } else {
+                status = 'Many tests failed';
+                statusIcon = '❌';
+            }
+            
+            content.innerHTML = `
+                <div style="text-align: center; font-size: 48px; margin-bottom: 20px;">
+                    ${statusIcon}
+                </div>
+                <h3 style="text-align: center; margin-bottom: 20px;">${status}</h3>
+                <div style="text-align: center;">
+                    <div class="metric">
+                        <strong>Total Tests:</strong> ${testResults.total}
+                    </div>
+                    <div class="metric" style="background: #dcfce7;">
+                        <strong>Passed:</strong> ${testResults.passed}
+                    </div>
+                    <div class="metric" style="background: #fee2e2;">
+                        <strong>Failed:</strong> ${testResults.failed}
+                    </div>
+                    <div class="metric" style="background: #fef3c7;">
+                        <strong>Pass Rate:</strong> ${passRate}%
+                    </div>
+                </div>
+            `;
+            
+            summary.style.display = 'block';
+        }
+        
+        // Make function available globally
+        window.runAllTests = runAllTests;
+    </script>
+</body>
+</html>
