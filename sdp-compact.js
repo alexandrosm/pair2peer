@@ -134,19 +134,19 @@ export function expandSDP(compact, type = 'offer') {
             const networkId = parts[2] || '1';
             // Debug log
             console.log(`expandSDP: host candidate - IP: "${ip}", Port: "${port}", networkId: "${networkId}"`);
-            // Use larger foundation numbers like browsers do
-            const foundation = 100000000 + index;
-            lines.push(`a=candidate:${foundation} 1 udp 2122260223 ${ip} ${port} typ host generation 0 network-id ${networkId}`);
+            // Use simple sequential foundation numbers
+            const foundation = index + 1;
+            lines.push(`a=candidate:${foundation} 1 udp 2122260223 ${ip} ${port} typ host generation 0`);
         } else if (type === 's') {
             const [ip, port] = parts[1].split(':');
             const [raddr, rport] = parts[2].split(':');
             const networkId = parts[3] || '1';
             // Debug log
             console.log(`expandSDP: srflx candidate - IP: "${ip}", Port: "${port}", raddr: "${raddr}", rport: "${rport}", networkId: "${networkId}"`);
-            // Server reflexive candidate with large foundation
-            const foundation = 200000000 + index;
-            // Try without network-cost first
-            const srflxLine = `a=candidate:${foundation} 1 udp 1686052607 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0 network-id ${networkId}`;
+            // Use simple sequential foundation numbers
+            const foundation = index + 1;
+            // Minimal srflx candidate without network-id
+            const srflxLine = `a=candidate:${foundation} 1 udp 1686052607 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0`;
             console.log(`expandSDP: Generated srflx candidate line: "${srflxLine}"`);
             lines.push(srflxLine);
         } else if (type === 'r') {

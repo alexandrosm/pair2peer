@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Browser SDP Format Test</title>
+</head>
+<body>
+    <h1>Browser SDP Format Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        async function testSDP(description, sdp) {
+            const div = document.createElement('div');
+            div.style.marginBottom = '10px';
+            
+            try {
+                const pc = new RTCPeerConnection();
+                await pc.setRemoteDescription({ type: 'offer', sdp });
+                div.innerHTML = `✅ <b>${description}</b>: SUCCESS`;
+                div.style.color = 'green';
+                pc.close();
+            } catch (error) {
+                div.innerHTML = `❌ <b>${description}</b>: ${error.message}`;
+                div.style.color = 'red';
+            }
+            
+            results.appendChild(div);
+        }
+        
+        async function runTests() {
+            const baseSDp = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            // Test different candidate formats
+            await testSDP('No candidates', baseSDp);
+            
+            await testSDP('Simple host', 
+                baseSDp + '\r\na=candidate:1 1 udp 2122260223 192.168.1.100 50000 typ host generation 0');
+            
+            await testSDP('Host with network-id', 
+                baseSDp + '\r\na=candidate:1 1 udp 2122260223 192.168.1.100 50000 typ host generation 0 network-id 1');
+            
+            await testSDP('Host with network-id and network-cost', 
+                baseSDp + '\r\na=candidate:1 1 udp 2122260223 192.168.1.100 50000 typ host generation 0 network-id 1 network-cost 10');
+            
+            await testSDP('Simple srflx', 
+                baseSDp + '\r\na=candidate:2 1 udp 1686052607 24.17.60.171 50000 typ srflx raddr 192.168.1.100 rport 50000 generation 0');
+            
+            await testSDP('Srflx with network-id', 
+                baseSDp + '\r\na=candidate:2 1 udp 1686052607 24.17.60.171 50000 typ srflx raddr 192.168.1.100 rport 50000 generation 0 network-id 1');
+            
+            await testSDP('Srflx with network-id and network-cost', 
+                baseSDp + '\r\na=candidate:2 1 udp 1686052607 24.17.60.171 50000 typ srflx raddr 192.168.1.100 rport 50000 generation 0 network-id 1 network-cost 10');
+            
+            await testSDP('Large foundation number', 
+                baseSDp + '\r\na=candidate:200000004 1 udp 1686052607 24.17.60.171 50000 typ srflx raddr 192.168.1.100 rport 50000 generation 0');
+            
+            // Test the exact format we're generating
+            await testSDP('Our format (no network-cost)', 
+                baseSDp + '\r\na=candidate:200000004 1 udp 1686052607 24.17.60.171 63365 typ srflx raddr 192.168.1.7 rport 63365 generation 0 network-id 4');
+            
+            // Test with max-message-size
+            await testSDP('With max-message-size', 
+                baseSDp + '\r\na=max-message-size:262144\r\na=candidate:1 1 udp 2122260223 192.168.1.100 50000 typ host generation 0');
+        }
+        
+        runTests();
+    </script>
+</body>
+</html>

@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.3.1</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.3.2</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -103,11 +103,11 @@
 
     <script type="module">
         // Import functions from modules
-        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.2.1';
+        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.2.2';
         import { encodeWebRTCData, decodeWebRTCData } from './asn1-uper-codec.js?v=1.2.0';
         
         // Version info
-        const APP_VERSION = '1.3.1';
+        const APP_VERSION = '1.3.2';
         const BUILD_DATE = new Date().toISOString();
         const GIT_COMMIT = 'c5bb36e'; // Will be updated by CI/CD
         
