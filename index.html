@@ -137,10 +137,35 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <h2 class="text-xl font-semibold text-gray-800 mb-2">Connected!</h2>
-                    <div id="messages" class="h-40 overflow-y-auto bg-gray-100 rounded p-3 mb-4 text-sm text-left"></div>
-                    <div class="flex gap-2">
-                        <input id="msg-input" type="text" class="flex-1 p-2 border rounded" placeholder="Type a message...">
-                        <button id="send-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
+                    
+                    <!-- Tab buttons -->
+                    <div class="flex mb-4 border-b">
+                        <button id="chat-tab" class="flex-1 py-2 px-4 border-b-2 border-blue-600 text-blue-600 font-semibold">Chat</button>
+                        <button id="canvas-tab" class="flex-1 py-2 px-4 border-b-2 border-transparent hover:border-gray-300">Shared Canvas</button>
+                    </div>
+                    
+                    <!-- Chat View -->
+                    <div id="chat-view" class="tab-content">
+                        <div id="messages" class="h-40 overflow-y-auto bg-gray-100 rounded p-3 mb-4 text-sm text-left"></div>
+                        <div class="flex gap-2">
+                            <input id="msg-input" type="text" class="flex-1 p-2 border rounded" placeholder="Type a message...">
+                            <button id="send-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Canvas View -->
+                    <div id="canvas-view" class="tab-content hidden">
+                        <div class="mb-2">
+                            <div class="flex gap-2 justify-center mb-2">
+                                <button id="color-black" class="w-8 h-8 bg-black rounded border-2 border-gray-300" data-color="#000000"></button>
+                                <button id="color-red" class="w-8 h-8 bg-red-500 rounded border-2 border-gray-300" data-color="#ef4444"></button>
+                                <button id="color-blue" class="w-8 h-8 bg-blue-500 rounded border-2 border-gray-300" data-color="#3b82f6"></button>
+                                <button id="color-green" class="w-8 h-8 bg-green-500 rounded border-2 border-gray-300" data-color="#10b981"></button>
+                                <button id="clear-canvas" class="px-3 py-1 bg-gray-200 rounded text-sm">Clear</button>
+                            </div>
+                        </div>
+                        <canvas id="shared-canvas" class="border border-gray-300 rounded bg-white cursor-crosshair" width="400" height="300"></canvas>
+                        <p class="text-xs text-gray-500 mt-2">Draw on the canvas - changes sync in real-time!</p>
                     </div>
                 </div>
             </div>
@@ -251,6 +276,14 @@
         const { compactSDP, expandSDP } = sdpModule;
         const { encodeWebRTCData, decodeWebRTCData } = asn1Module;
         const { addCRC, verifyCRC } = crcModule;
+        
+        // Simple shared state implementation
+        let sharedState = {
+            canvas: {
+                strokes: []
+            },
+            lastUpdate: 0
+        };
         
         // Register service worker for offline support and updates
         if ('serviceWorker' in navigator) {
@@ -718,6 +751,9 @@
                 showStep('connected');
                 updateStatus('Connected!', 'success');
                 stopCamera();
+                
+                // Initialize shared state
+                initializeSharedState();
             };
             
             state.dc.onclose = () => {
@@ -726,8 +762,19 @@
             };
             
             state.dc.onmessage = (e) => {
-                console.log('Message received:', e.data);
-                addMessage('Them', e.data);
+                // Check if it's a shared state message
+                if (e.data && typeof e.data === 'string' && e.data.startsWith('{"type":')) {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        handleSharedStateMessage(msg);
+                    } catch (err) {
+                        console.error('Error processing shared state message:', err);
+                    }
+                } else {
+                    // Regular chat message
+                    console.log('Message received:', e.data);
+                    addMessage('Them', e.data);
+                }
             };
             
             state.dc.onerror = (error) => {
@@ -741,6 +788,52 @@
                 showStep('connected');
                 updateStatus('Connected!', 'success');
                 stopCamera();
+                
+                // Initialize shared state
+                initializeSharedState();
+            }
+        }
+        
+        function initializeSharedState() {
+            console.log('Initializing shared state');
+            
+            // Request current state from peer
+            if (state.role === 'device2' && state.dc && state.dc.readyState === 'open') {
+                state.dc.send(JSON.stringify({ type: 'request-state' }));
+            }
+        }
+        
+        function handleSharedStateMessage(msg) {
+            switch (msg.type) {
+                case 'request-state':
+                    // Send current state to peer
+                    if (state.dc && state.dc.readyState === 'open') {
+                        state.dc.send(JSON.stringify({
+                            type: 'state-sync',
+                            state: sharedState
+                        }));
+                    }
+                    break;
+                    
+                case 'state-sync':
+                    // Receive full state from peer
+                    sharedState = msg.state;
+                    redrawCanvas();
+                    break;
+                    
+                case 'add-stroke':
+                    // Add a new stroke
+                    sharedState.canvas.strokes.push(msg.stroke);
+                    sharedState.lastUpdate = Date.now();
+                    redrawCanvas();
+                    break;
+                    
+                case 'clear-canvas':
+                    // Clear the canvas
+                    sharedState.canvas.strokes = [];
+                    sharedState.lastUpdate = Date.now();
+                    redrawCanvas();
+                    break;
             }
         }
 
@@ -1246,6 +1339,170 @@
                 console.error('Failed to copy logs:', err);
             });
         });
+        
+        // Tab switching
+        document.getElementById('chat-tab').addEventListener('click', () => {
+            document.getElementById('chat-tab').classList.add('border-blue-600', 'text-blue-600', 'font-semibold');
+            document.getElementById('chat-tab').classList.remove('border-transparent');
+            document.getElementById('canvas-tab').classList.remove('border-blue-600', 'text-blue-600', 'font-semibold');
+            document.getElementById('canvas-tab').classList.add('border-transparent');
+            
+            document.getElementById('chat-view').classList.remove('hidden');
+            document.getElementById('canvas-view').classList.add('hidden');
+        });
+        
+        document.getElementById('canvas-tab').addEventListener('click', () => {
+            document.getElementById('canvas-tab').classList.add('border-blue-600', 'text-blue-600', 'font-semibold');
+            document.getElementById('canvas-tab').classList.remove('border-transparent');
+            document.getElementById('chat-tab').classList.remove('border-blue-600', 'text-blue-600', 'font-semibold');
+            document.getElementById('chat-tab').classList.add('border-transparent');
+            
+            document.getElementById('canvas-view').classList.remove('hidden');
+            document.getElementById('chat-view').classList.add('hidden');
+            
+            // Initialize canvas if not done
+            initCanvas();
+        });
+        
+        // Canvas functionality
+        let canvas, ctx;
+        let isDrawing = false;
+        let currentColor = '#000000';
+        let currentStroke = null;
+        
+        function initCanvas() {
+            if (canvas) return; // Already initialized
+            
+            canvas = document.getElementById('shared-canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size properly
+            canvas.width = 400;
+            canvas.height = 300;
+            
+            // Clear canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Mouse events
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            
+            // Touch events for mobile
+            canvas.addEventListener('touchstart', handleTouch);
+            canvas.addEventListener('touchmove', handleTouch);
+            canvas.addEventListener('touchend', stopDrawing);
+            
+            // Color buttons
+            document.querySelectorAll('[data-color]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    currentColor = e.target.dataset.color;
+                    // Update border to show selection
+                    document.querySelectorAll('[data-color]').forEach(b => {
+                        b.classList.remove('border-gray-800');
+                        b.classList.add('border-gray-300');
+                    });
+                    e.target.classList.remove('border-gray-300');
+                    e.target.classList.add('border-gray-800');
+                });
+            });
+            
+            // Clear button
+            document.getElementById('clear-canvas').addEventListener('click', () => {
+                // Clear canvas and notify peer
+                sharedState.canvas.strokes = [];
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                if (state.dc && state.dc.readyState === 'open') {
+                    state.dc.send(JSON.stringify({ type: 'clear-canvas' }));
+                }
+            });
+        }
+        
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            if (e.type === 'touchstart') {
+                startDrawing({ offsetX: x, offsetY: y });
+            } else if (e.type === 'touchmove') {
+                draw({ offsetX: x, offsetY: y });
+            }
+        }
+        
+        function startDrawing(e) {
+            isDrawing = true;
+            currentStroke = {
+                color: currentColor,
+                points: [{ x: e.offsetX, y: e.offsetY }]
+            };
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const point = { x: e.offsetX, y: e.offsetY };
+            currentStroke.points.push(point);
+            
+            // Draw locally immediately
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(currentStroke.points[currentStroke.points.length - 2].x, 
+                       currentStroke.points[currentStroke.points.length - 2].y);
+            ctx.lineTo(point.x, point.y);
+            ctx.stroke();
+        }
+        
+        function stopDrawing() {
+            if (!isDrawing || !currentStroke) return;
+            isDrawing = false;
+            
+            // Add stroke to shared state and notify peer
+            sharedState.canvas.strokes.push(currentStroke);
+            
+            if (state.dc && state.dc.readyState === 'open') {
+                state.dc.send(JSON.stringify({
+                    type: 'add-stroke',
+                    stroke: currentStroke
+                }));
+            }
+            
+            currentStroke = null;
+        }
+        
+        function redrawCanvas() {
+            if (!canvas || !ctx) return;
+            
+            // Clear canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Redraw all strokes
+            sharedState.canvas.strokes.forEach(stroke => {
+                ctx.strokeStyle = stroke.color;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                
+                stroke.points.forEach((point, index) => {
+                    if (index === 0) {
+                        ctx.moveTo(point.x, point.y);
+                    } else {
+                        ctx.lineTo(point.x, point.y);
+                    }
+                });
+                
+                ctx.stroke();
+            });
+        }
     </script>
 </body>
 </html>
