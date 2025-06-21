@@ -230,6 +230,7 @@
         async function processOffer(compressedData) {
             try {
                 const data = decompressData(compressedData);
+                console.log('Decompressed offer data:', data);
                 if (!data || data.t !== 'o') throw new Error('Invalid offer');
                 
                 updateStatus('Processing offer...');
@@ -245,7 +246,7 @@
                 };
                 
                 // Set remote description (expand from compact format)
-                const expandedSDP = data.s ? data.s : expandSDP(data, 'offer');
+                const expandedSDP = expandSDP(data, 'offer');
                 await state.pc.setRemoteDescription({
                     type: 'offer',
                     sdp: expandedSDP
@@ -297,7 +298,7 @@
                 updateStatus('Connecting...');
                 
                 // Set remote description (expand from compact format)
-                const expandedSDP = data.s ? data.s : expandSDP(data, 'answer');
+                const expandedSDP = expandSDP(data, 'answer');
                 await state.pc.setRemoteDescription({
                     type: 'answer',
                     sdp: expandedSDP
