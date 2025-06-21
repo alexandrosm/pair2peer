@@ -258,6 +258,7 @@
                 
                 // Set remote description (expand from compact format)
                 const expandedSDP = expandSDP(data, 'offer');
+                console.log('Expanded SDP:', expandedSDP);
                 await state.pc.setRemoteDescription({
                     type: 'offer',
                     sdp: expandedSDP

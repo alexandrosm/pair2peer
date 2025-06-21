@@ -46,9 +46,15 @@ export function compactSDP(sdp) {
 }
 
 export function expandSDP(compact, type = 'offer') {
+    // Ensure we have all required fields
+    if (!compact.u || !compact.p || !compact.f) {
+        throw new Error('Missing required SDP fields');
+    }
+    
+    const sessionId = Date.now();
     const lines = [
         'v=0',
-        'o=- 1 1 IN IP4 0.0.0.0',
+        `o=- ${sessionId} 2 IN IP4 127.0.0.1`,
         's=-',
         't=0 0',
         'a=group:BUNDLE 0',
@@ -67,7 +73,8 @@ export function expandSDP(compact, type = 'offer') {
     ];
     
     // Add candidates
-    compact.c.forEach(cand => {
+    if (compact.c && Array.isArray(compact.c)) {
+        compact.c.forEach(cand => {
         const parts = cand.split(',');
         const type = parts[0];
         
@@ -82,11 +89,13 @@ export function expandSDP(compact, type = 'offer') {
             const [ip, port] = parts[1].split(':');
             lines.push(`a=candidate:3 1 udp 41885439 ${ip} ${port} typ relay raddr 0.0.0.0 rport 0 generation 0 ufrag ${compact.u} network-id 1`);
         }
-    });
+        });
+    }
     
-    lines.push('a=end-of-candidates');
+    // Note: a=end-of-candidates is not universally supported and can cause parsing errors
+    // It's better to omit it and let the browser handle candidate completion
     
-    return lines.join('\n');
+    return lines.join('\r\n'); // Use CRLF for proper SDP format
 }
 
 // Export for use in HTML
