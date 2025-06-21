@@ -1,5 +1,5 @@
 // Service Worker for Pair2Peer
-const CACHE_NAME = 'pair2peer-v1.4.7-local';
+const CACHE_NAME = 'pair2peer-v1.4.8-local';
 const urlsToCache = [
   './',
   './index.html',

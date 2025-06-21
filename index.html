@@ -327,6 +327,16 @@
                     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
                 });
                 
+                // Add connection state monitoring
+                state.pc.onconnectionstatechange = () => {
+                    console.log('Connection state:', state.pc.connectionState);
+                    updateStatus(`Connection: ${state.pc.connectionState}`);
+                };
+                
+                state.pc.oniceconnectionstatechange = () => {
+                    console.log('ICE connection state:', state.pc.iceConnectionState);
+                };
+                
                 state.dc = state.pc.createDataChannel('chat', {
                     ordered: true,
                     maxRetransmits: 3
@@ -431,7 +441,21 @@
                     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
                 });
                 
+                // Add connection state monitoring
+                state.pc.onconnectionstatechange = () => {
+                    console.log('Device 2 - Connection state:', state.pc.connectionState);
+                    updateStatus(`Connection: ${state.pc.connectionState}`);
+                    if (state.pc.connectionState === 'connected') {
+                        console.log('WebRTC connected! Waiting for data channel...');
+                    }
+                };
+                
+                state.pc.oniceconnectionstatechange = () => {
+                    console.log('Device 2 - ICE connection state:', state.pc.iceConnectionState);
+                };
+                
                 state.pc.ondatachannel = (event) => {
+                    console.log('Data channel received:', event.channel.label);
                     state.dc = event.channel;
                     setupDataChannel();
                 };
@@ -502,18 +526,27 @@
                 const data = decompressData(compressedData);
                 if (!data || data.t !== 'a') throw new Error('Invalid answer');
                 
+                console.log('Processing answer:', data);
                 updateStatus('Connecting...');
                 
                 // Set remote description (expand from compact format)
                 const expandedSDP = expandSDP(data, 'answer');
+                console.log('Answer SDP:', expandedSDP);
+                
                 await state.pc.setRemoteDescription({
                     type: 'answer',
                     sdp: expandedSDP
                 });
                 
+                console.log('Answer set successfully');
+                console.log('Connection state after answer:', state.pc.connectionState);
+                console.log('ICE state after answer:', state.pc.iceConnectionState);
+                console.log('Data channel state:', state.dc?.readyState);
+                
                 // ICE candidates are now bundled in the SDP
                 
             } catch (error) {
+                console.error('processAnswer error:', error);
                 updateStatus('Error: ' + error.message, 'error');
             }
         }
@@ -574,13 +607,22 @@
         }
 
         function setupDataChannel() {
+            console.log('Setting up data channel, current state:', state.dc.readyState);
+            
             state.dc.onopen = () => {
+                console.log('Data channel opened!');
                 showStep('connected');
                 updateStatus('Connected!', 'success');
                 stopCamera();
             };
             
+            state.dc.onclose = () => {
+                console.log('Data channel closed');
+                updateStatus('Disconnected', 'error');
+            };
+            
             state.dc.onmessage = (e) => {
+                console.log('Message received:', e.data);
                 addMessage('Them', e.data);
             };
             
@@ -588,6 +630,14 @@
                 updateStatus('Connection error', 'error');
                 console.error('DataChannel error:', error);
             };
+            
+            // Check if already open
+            if (state.dc.readyState === 'open') {
+                console.log('Data channel already open!');
+                showStep('connected');
+                updateStatus('Connected!', 'success');
+                stopCamera();
+            }
         }
 
         function addMessage(sender, text) {
