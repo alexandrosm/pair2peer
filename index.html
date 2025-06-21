@@ -508,6 +508,12 @@
                 
                 console.log('Creating answer data:', answerData);
                 console.log('Answer type:', answerData.t);
+                console.log('Answer candidates:', answerData.c);
+                if (answerData.c) {
+                    answerData.c.forEach((cand, idx) => {
+                        console.log(`  Answer candidate ${idx}: ${cand}`);
+                    });
+                }
                 
                 // Store for stats
                 state.lastData = answerData;

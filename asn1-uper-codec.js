@@ -56,6 +56,7 @@ export class UPEREncoder {
 
     writeIP(ipStr) {
         const parts = ipStr.split('.');
+        console.log(`Writing IP: ${ipStr}, parts: ${parts}`);
         for (const part of parts) {
             this.writeBits(parseInt(part), 8);
         }
@@ -152,7 +153,9 @@ export class UPERDecoder {
         for (let i = 0; i < 4; i++) {
             parts.push(this.readBits(8));
         }
-        return parts.join('.');
+        const ip = parts.join('.');
+        console.log(`Read IP: ${ip}, parts: ${parts}`);
+        return ip;
     }
 
     readPort() {
