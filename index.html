@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.7</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.8</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -108,7 +108,7 @@
         import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.0.6';
         
         // Version info
-        const APP_VERSION = '1.0.7';
+        const APP_VERSION = '1.0.8';
         const BUILD_DATE = new Date().toISOString();
         const GIT_COMMIT = '8952b89'; // Will be updated by CI/CD
         
@@ -250,12 +250,19 @@
                 // Store for stats
                 state.lastData = offerData;
                 console.log('Offer data:', offerData);
+                console.log('Offer type check: t =', offerData.t, '(should be "o")');
                 console.log('Fingerprint length:', offerData.f ? offerData.f.length : 0);
                 
                 // Compress and show
                 const compressed = compressData(offerData);
                 console.log('Compressed offer:', compressed);
                 console.log('Compressed length:', compressed.length);
+                
+                // Test decode immediately
+                const testDecode = decompressData(compressed);
+                console.log('Test decode result:', testDecode);
+                console.log('Test decode type:', testDecode?.t);
+                
                 showQR(compressed, 'Step 1: Show to Device 2');
                 
             } catch (error) {
@@ -338,6 +345,9 @@
                     t: 'a', // type: answer
                     ...compactSDP(state.pc.localDescription.sdp)
                 };
+                
+                console.log('Creating answer data:', answerData);
+                console.log('Answer type:', answerData.t);
                 
                 // Store for stats
                 state.lastData = answerData;
