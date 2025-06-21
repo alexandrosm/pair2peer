@@ -69,6 +69,15 @@
                 <p class="text-center mb-4" id="scan-title">Scan QR Code:</p>
                 <div class="relative bg-black rounded-lg overflow-hidden mb-4" style="aspect-ratio: 4/3;">
                     <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                    <button id="switch-camera-btn" class="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 p-2 rounded-lg shadow-lg" title="Switch camera">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+                            <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="m18 22-3-3 3-3"></path>
+                            <path d="m6 2 3 3-3 3"></path>
+                        </svg>
+                    </button>
                 </div>
                 <button id="manual-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg">
                     Enter Manually
@@ -134,7 +143,8 @@
             scanTarget: null,
             lastData: null,
             preGeneratedOffer: null,
-            preGeneratedQR: null
+            preGeneratedQR: null,
+            cameraFacing: 'user' // 'user' for selfie cam, 'environment' for back
         };
 
         // Compression utilities
@@ -505,8 +515,9 @@
 
         async function startScanner() {
             try {
+                // Use selected camera (default to selfie cam for easier scanning)
                 state.stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' }
+                    video: { facingMode: state.cameraFacing }
                 });
                 
                 const video = document.getElementById('video');
@@ -880,6 +891,30 @@
         
         // Add event listeners (only add selftest, others already exist)
         document.getElementById('selftest-btn').addEventListener('click', runSelfTest);
+        
+        // Camera switch button
+        document.getElementById('switch-camera-btn').addEventListener('click', async () => {
+            // Toggle camera facing
+            state.cameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
+            console.log('Switching to', state.cameraFacing, 'camera');
+            
+            // Stop current stream
+            if (state.stream) {
+                state.stream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Restart scanner with new camera
+            try {
+                await startScanner();
+                updateStatus(`Switched to ${state.cameraFacing === 'user' ? 'front' : 'back'} camera`, 'info');
+            } catch (error) {
+                console.error('Camera switch error:', error);
+                updateStatus('Failed to switch camera', 'error');
+                // Try to fall back to other camera
+                state.cameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
+                await startScanner();
+            }
+        });
     </script>
 </body>
 </html>
