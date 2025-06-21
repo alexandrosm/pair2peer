@@ -202,17 +202,26 @@ export function encodeWebRTCData(data) {
         const typeMap = { 'h': 0, 's': 1, 'r': 2 };
         encoder.writeBits(typeMap[type], 2);
         
-        if (type === 'h' || type === 'r') {
+        if (type === 'h') {
             const [ip, port] = parts[1].split(':');
+            const networkId = parseInt(parts[2] || '1');
             encoder.writeIP(ip);
             encoder.writePort(parseInt(port));
+            encoder.writeConstrainedInt(networkId, 1, 10); // network-id typically 1-10
         } else if (type === 's') {
             const [ip1, port1] = parts[1].split(':');
             const [ip2, port2] = parts[2].split(':');
+            const networkId = parseInt(parts[3] || '1');
             encoder.writeIP(ip1);
             encoder.writePort(parseInt(port1));
             encoder.writeIP(ip2);
             encoder.writePort(parseInt(port2));
+            encoder.writeConstrainedInt(networkId, 1, 10); // network-id typically 1-10
+        } else if (type === 'r') {
+            const [ip, port] = parts[1].split(':');
+            encoder.writeIP(ip);
+            encoder.writePort(parseInt(port));
+            encoder.writeConstrainedInt(1, 1, 10); // default network-id 1 for relay
         }
     });
     
@@ -275,16 +284,23 @@ export function decodeWebRTCData(bytes) {
         const type = typeMap[typeBits];
         console.log(`ASN.1 decoder: Candidate ${i+1} - type bits: ${typeBits}, type: ${type}`);
         
-        if (type === 'h' || type === 'r') {
+        if (type === 'h') {
             const ip = decoder.readIP();
             const port = decoder.readPort();
-            candidates.push(`${type},${ip}:${port}`);
+            const networkId = decoder.readConstrainedInt(1, 10);
+            candidates.push(`h,${ip}:${port},${networkId}`);
         } else if (type === 's') {
             const ip1 = decoder.readIP();
             const port1 = decoder.readPort();
             const ip2 = decoder.readIP();
             const port2 = decoder.readPort();
-            candidates.push(`s,${ip1}:${port1},${ip2}:${port2}`);
+            const networkId = decoder.readConstrainedInt(1, 10);
+            candidates.push(`s,${ip1}:${port1},${ip2}:${port2},${networkId}`);
+        } else if (type === 'r') {
+            const ip = decoder.readIP();
+            const port = decoder.readPort();
+            const networkId = decoder.readConstrainedInt(1, 10);
+            candidates.push(`r,${ip}:${port}`);
         }
     }
     
