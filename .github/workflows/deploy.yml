@@ -38,6 +38,12 @@ jobs:
           cp base45-lib.js dist/ 2>/dev/null || true
           cp sdp-compact.js dist/ 2>/dev/null || true
           cp binary-codec.js dist/ 2>/dev/null || true
+          
+      - name: Update version info
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          sed -i "s/GIT_COMMIT = '[^']*'/GIT_COMMIT = '$SHORT_SHA'/" dist/index.html
+          echo "Updated commit hash to $SHORT_SHA"
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
