@@ -9,9 +9,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
-    <script src="./base45-lib.js"></script>
-    <script src="./sdp-compact.js"></script>
-    <script src="./binary-codec.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md">
@@ -94,7 +91,12 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // Import functions from modules
+        import { base45Encode, base45Decode } from './base45-lib.js';
+        import { compactSDP, expandSDP } from './sdp-compact.js';
+        import { encodeBinary, decodeBinary } from './binary-codec.js';
+        
         const state = {
             role: null,
             pc: null,
