@@ -171,11 +171,15 @@ export function encodeWebRTCData(data) {
     const setupMap = { 'a': 0, 'p': 1, 'c': 2 };
     encoder.writeBits(setupMap[data.s] || 0, 2);
     
-    // ICE ufrag (constrained to 4-8 chars typically)
-    encoder.writeVisibleString(data.u, 8);
+    // ICE ufrag with length prefix
+    const ufragLen = Math.min(data.u.length, 255);
+    encoder.writeBits(ufragLen, 8);
+    encoder.writeVisibleString(data.u.substring(0, ufragLen), ufragLen);
     
-    // ICE pwd (constrained to 22-24 chars typically)
-    encoder.writeVisibleString(data.p, 24);
+    // ICE pwd with length prefix
+    const pwdLen = Math.min(data.p.length, 255);
+    encoder.writeBits(pwdLen, 8);
+    encoder.writeVisibleString(data.p.substring(0, pwdLen), pwdLen);
     
     // Fingerprint
     const fpHex = (data.f || '').replace(/:/g, '');
@@ -240,9 +244,11 @@ export function decodeWebRTCData(bytes) {
     const setupMap = ['a', 'p', 'c'];
     const setup = setupMap[setupBits];
     
-    // ICE credentials
-    const ufrag = decoder.readVisibleString(8);
-    const pwd = decoder.readVisibleString(24);
+    // ICE credentials with length prefix
+    const ufragLen = decoder.readBits(8);
+    const ufrag = decoder.readVisibleString(ufragLen);
+    const pwdLen = decoder.readBits(8);
+    const pwd = decoder.readVisibleString(pwdLen);
     
     // Fingerprint
     const fpBytes = decoder.readOctetString();
