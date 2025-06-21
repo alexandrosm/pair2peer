@@ -1064,9 +1064,6 @@
         }
         
         // Event listeners - removed device buttons since we auto-start
-        
-        document.getElementById('next-btn').addEventListener('click', () => {
-            if (state.role === 'device1') {
                 // Show split view with QR and camera
                 if (state.lastQRData) {
                     const qrDiv = document.getElementById('qr-display-split');
@@ -1178,10 +1175,21 @@
         
         // Auto-start immediately
         window.addEventListener('DOMContentLoaded', async () => {
-            // Small delay to ensure everything is loaded
-            setTimeout(() => {
-                startUnified('auto');
-            }, 100);
+            // Wait a bit longer for everything to initialize
+            setTimeout(async () => {
+                try {
+                    console.log('Auto-starting Pair2Peer...');
+                    await startUnified('auto');
+                } catch (error) {
+                    console.error('Auto-start failed:', error);
+                    updateStatus('Camera permission needed - click to retry', 'error');
+                    // Show a retry button on error
+                    document.getElementById('status').onclick = () => {
+                        location.reload();
+                    };
+                    document.getElementById('status').style.cursor = 'pointer';
+                }
+            }, 500);
         });
         
         // Self-test function
