@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.4</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.5</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -26,8 +26,11 @@
                 <button id="device1-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
                     Device 1 (Start)
                 </button>
-                <button id="device2-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg">
+                <button id="device2-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
                     Device 2 (Join)
+                </button>
+                <button id="selftest-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-sm">
+                    Self Test (Debug)
                 </button>
             </div>
 
@@ -94,14 +97,14 @@
 
     <script type="module">
         // Import functions from modules
-        import { base45Encode, base45Decode } from './base45-lib.js?v=1.0.4';
-        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.0.4';
-        import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.0.4';
+        import { base45Encode, base45Decode } from './base45-lib.js?v=1.0.5';
+        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.0.5';
+        import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.0.5';
         
         // Version info
-        const APP_VERSION = '1.0.4';
+        const APP_VERSION = '1.0.5';
         const BUILD_DATE = new Date().toISOString();
-        const GIT_COMMIT = 'b29c323'; // Will be updated by CI/CD
+        const GIT_COMMIT = '4effcbd'; // Will be updated by CI/CD
         
         console.log(`%cPair2Peer v${APP_VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
@@ -575,6 +578,91 @@
         
         // Pre-generate on load
         preGenerateOffer();
+        
+        // Self-test function
+        async function runSelfTest() {
+            console.log('=== RUNNING SELF TEST ===');
+            updateStatus('Running self test...', 'info');
+            
+            try {
+                // Create a test offer
+                const testData = {
+                    t: 'o',
+                    u: 'TEST',
+                    p: 'TestPassword123456789012',
+                    f: '01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF',
+                    s: 'a',
+                    c: ['h,192.168.1.100:12345', 's,10.0.0.1:54321,203.0.113.1:3478']
+                };
+                
+                console.log('Test data:', testData);
+                
+                // Compress it
+                const compressed = compressData(testData);
+                console.log('Compressed:', compressed);
+                console.log('Compressed length:', compressed.length, 'chars');
+                
+                // Decompress it
+                const decompressed = decompressData(compressed);
+                console.log('Decompressed:', decompressed);
+                
+                // Verify
+                const passed = 
+                    decompressed && 
+                    decompressed.t === testData.t &&
+                    decompressed.u === testData.u &&
+                    decompressed.p === testData.p &&
+                    decompressed.f === testData.f.replace(/:/g, '').toUpperCase() &&
+                    decompressed.s === testData.s &&
+                    JSON.stringify(decompressed.c) === JSON.stringify(testData.c);
+                
+                if (passed) {
+                    console.log('✅ SELF TEST PASSED');
+                    updateStatus('Self test passed! Encode/decode working correctly.', 'success');
+                    
+                    // Test SDP expansion
+                    console.log('\nTesting SDP expansion...');
+                    const expandedSDP = expandSDP(decompressed, 'offer');
+                    console.log('Expanded SDP preview:', expandedSDP.substring(0, 200) + '...');
+                    
+                    if (expandedSDP.includes('v=0') && expandedSDP.includes('a=ice-ufrag:TEST')) {
+                        console.log('✅ SDP expansion working');
+                    } else {
+                        console.log('❌ SDP expansion failed');
+                    }
+                } else {
+                    console.log('❌ SELF TEST FAILED');
+                    console.log('Expected:', testData);
+                    console.log('Got:', decompressed);
+                    updateStatus('Self test failed! Check console for details.', 'error');
+                }
+                
+                // Test with actual WebRTC data if pre-generated
+                if (state.preGeneratedOffer) {
+                    console.log('\n=== TESTING WITH REAL WEBRTC DATA ===');
+                    const realCompressed = state.preGeneratedQR;
+                    console.log('Real compressed:', realCompressed);
+                    
+                    const realDecompressed = decompressData(realCompressed);
+                    console.log('Real decompressed:', realDecompressed);
+                    
+                    if (realDecompressed && realDecompressed.t === 'o') {
+                        console.log('✅ Real WebRTC data test passed');
+                    } else {
+                        console.log('❌ Real WebRTC data test failed');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Self test error:', error);
+                updateStatus('Self test error: ' + error.message, 'error');
+            }
+        }
+        
+        // Add event listeners
+        document.getElementById('device1-btn').addEventListener('click', startDevice1);
+        document.getElementById('device2-btn').addEventListener('click', startDevice2);
+        document.getElementById('selftest-btn').addEventListener('click', runSelfTest);
     </script>
 </body>
 </html>
