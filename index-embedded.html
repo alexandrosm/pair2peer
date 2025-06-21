@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pair2Peer v1.4.4</title>
+    <meta name="theme-color" content="#1e40af">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
+            <p class="text-xs text-gray-500 text-center mb-4">v1.4.4-embedded</p>
+            
+            <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
+                Ready to connect
+            </div>
+            
+            <!-- Start -->
+            <div id="step-start" class="step-view">
+                <p class="text-gray-600 text-center mb-4">Direct P2P - No Server Needed</p>
+                <div class="text-xs text-gray-500 mb-4 p-2 bg-gray-50 rounded">
+                    <p class="font-semibold">Instructions:</p>
+                    <p>1. Click "Device 1" on computer/first device</p>
+                    <p>2. Click "Device 2" on phone/second device</p>
+                    <p>3. Scan QR from Device 1 with Device 2</p>
+                </div>
+                <button id="device1-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
+                    Device 1 (Start) - Shows QR
+                </button>
+                <button id="device2-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
+                    Device 2 (Join) - Scans QR
+                </button>
+            </div>
+
+            <!-- Show QR -->
+            <div id="step-show" class="step-view hidden">
+                <div class="text-center mb-4">
+                    <p class="text-lg font-bold mb-2" id="show-title">Share this:</p>
+                    <div id="qr-display" class="mx-auto mb-4 flex justify-center"></div>
+                    <div class="text-xs text-gray-500 mb-2">
+                        <p>QR Size: <span id="qr-size">0</span> chars</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scan QR -->
+            <div id="step-scan" class="step-view hidden">
+                <p class="text-center mb-4" id="scan-title">Scan QR Code:</p>
+                <div class="relative bg-black rounded-lg overflow-hidden mb-4" style="aspect-ratio: 4/3;">
+                    <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                    <button id="switch-camera-btn" class="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 p-2 rounded-lg shadow-lg" title="Switch camera">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+                            <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="m18 22-3-3 3-3"></path>
+                            <path d="m6 2 3 3-3 3"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Connected -->
+            <div id="step-connected" class="step-view hidden">
+                <p class="text-center text-green-600 font-bold mb-4">✓ Connected!</p>
+                <div id="messages" class="h-64 border rounded p-2 mb-2 overflow-y-auto bg-gray-50"></div>
+                <div class="flex gap-2">
+                    <input id="msg-input" type="text" class="flex-1 border rounded px-2 py-1" placeholder="Type a message...">
+                    <button id="send-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // EMBEDDED VERSION - All code inline to work around version.js 404 error
+        console.log('Pair2Peer v1.4.4-embedded (fallback mode)');
+        
+        const state = {
+            role: null,
+            pc: null,
+            dc: null,
+            stream: null,
+            cameraFacing: 'user'
+        };
+
+        // Simplified compression for embedded version
+        function compressData(obj) {
+            // Just use JSON + base64 for now
+            return btoa(JSON.stringify(obj));
+        }
+
+        function decompressData(str) {
+            try {
+                return JSON.parse(atob(str));
+            } catch (e) {
+                console.error('Decompression error:', e);
+                return null;
+            }
+        }
+
+        function showStep(step) {
+            document.querySelectorAll('.step-view').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`step-${step}`).classList.remove('hidden');
+        }
+
+        function updateStatus(msg, type = 'info') {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            const colorClasses = 
+                type === 'error' ? 'bg-red-50 text-red-800' :
+                type === 'success' ? 'bg-green-50 text-green-800' :
+                'bg-blue-50 text-blue-800';
+            el.className = 'mb-4 p-3 rounded-lg text-center ' + colorClasses;
+        }
+
+        async function startDevice1() {
+            state.role = 'device1';
+            updateStatus('Creating connection...');
+            
+            try {
+                state.pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                state.dc = state.pc.createDataChannel('chat', { ordered: true });
+                setupDataChannel();
+                
+                const offer = await state.pc.createOffer();
+                await state.pc.setLocalDescription(offer);
+                
+                // Wait for ICE gathering
+                await new Promise((resolve) => {
+                    if (state.pc.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        state.pc.addEventListener('icegatheringstatechange', () => {
+                            if (state.pc.iceGatheringState === 'complete') resolve();
+                        });
+                        setTimeout(resolve, 3000);
+                    }
+                });
+                
+                const compressed = compressData({
+                    type: 'offer',
+                    sdp: state.pc.localDescription.sdp
+                });
+                
+                showQR(compressed, 'Show this QR to Device 2');
+                
+                // Auto-start scanner after brief delay
+                setTimeout(() => {
+                    showStep('scan');
+                    startScanner();
+                    updateStatus('Show QR to Device 2, then scan their response');
+                }, 500);
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function processData(data) {
+            const parsed = decompressData(data);
+            if (!parsed) {
+                updateStatus('Invalid QR code', 'error');
+                return;
+            }
+            
+            if (parsed.type === 'offer') {
+                // Device 2 processing offer
+                state.role = 'device2';
+                updateStatus('Processing offer...');
+                
+                state.pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                state.pc.ondatachannel = (event) => {
+                    state.dc = event.channel;
+                    setupDataChannel();
+                };
+                
+                await state.pc.setRemoteDescription({
+                    type: 'offer',
+                    sdp: parsed.sdp
+                });
+                
+                const answer = await state.pc.createAnswer();
+                await state.pc.setLocalDescription(answer);
+                
+                // Wait for ICE
+                await new Promise((resolve) => {
+                    if (state.pc.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        state.pc.addEventListener('icegatheringstatechange', () => {
+                            if (state.pc.iceGatheringState === 'complete') resolve();
+                        });
+                        setTimeout(resolve, 3000);
+                    }
+                });
+                
+                const compressed = compressData({
+                    type: 'answer',
+                    sdp: state.pc.localDescription.sdp
+                });
+                
+                showQR(compressed, 'Show this answer to Device 1');
+                
+            } else if (parsed.type === 'answer') {
+                // Device 1 processing answer
+                updateStatus('Connecting...');
+                await state.pc.setRemoteDescription({
+                    type: 'answer',
+                    sdp: parsed.sdp
+                });
+            }
+        }
+
+        function showQR(data, title) {
+            document.getElementById('show-title').textContent = title;
+            document.getElementById('qr-size').textContent = data.length;
+            
+            const qrDiv = document.getElementById('qr-display');
+            qrDiv.innerHTML = '';
+            
+            new QRCode(qrDiv, {
+                text: data,
+                width: 256,
+                height: 256,
+                correctLevel: QRCode.CorrectLevel.L
+            });
+            
+            showStep('show');
+        }
+
+        function setupDataChannel() {
+            state.dc.onopen = () => {
+                showStep('connected');
+                updateStatus('Connected!', 'success');
+                stopCamera();
+            };
+            
+            state.dc.onmessage = (e) => {
+                addMessage('Them', e.data);
+            };
+        }
+
+        function addMessage(sender, text) {
+            const el = document.getElementById('messages');
+            const msg = document.createElement('div');
+            msg.className = sender === 'You' ? 'text-right mb-1' : 'text-left mb-1';
+            msg.innerHTML = `<span class="font-semibold">${sender}:</span> ${text}`;
+            el.appendChild(msg);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        async function startScanner() {
+            try {
+                state.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: state.cameraFacing }
+                });
+                
+                const video = document.getElementById('video');
+                video.srcObject = state.stream;
+                video.play();
+                
+                scan();
+            } catch (error) {
+                updateStatus('Camera error: ' + error.message, 'error');
+            }
+        }
+
+        function scan() {
+            const video = document.getElementById('video');
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    processData(code.data);
+                    return;
+                }
+            }
+            
+            requestAnimationFrame(scan);
+        }
+
+        function stopCamera() {
+            if (state.stream) {
+                state.stream.getTracks().forEach(track => track.stop());
+                state.stream = null;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('device1-btn').addEventListener('click', startDevice1);
+        
+        document.getElementById('device2-btn').addEventListener('click', () => {
+            showStep('scan');
+            startScanner();
+            updateStatus('Scan QR code from Device 1');
+        });
+        
+        document.getElementById('switch-camera-btn').addEventListener('click', async () => {
+            state.cameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
+            if (state.stream) {
+                state.stream.getTracks().forEach(track => track.stop());
+            }
+            await startScanner();
+        });
+        
+        document.getElementById('send-btn').addEventListener('click', () => {
+            const input = document.getElementById('msg-input');
+            if (input.value && state.dc && state.dc.readyState === 'open') {
+                state.dc.send(input.value);
+                addMessage('You', input.value);
+                input.value = '';
+            }
+        });
+        
+        document.getElementById('msg-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('send-btn').click();
+            }
+        });
+    </script>
+</body>
+</html>

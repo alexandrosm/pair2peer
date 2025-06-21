@@ -64,6 +64,37 @@
                 </button>
             </div>
 
+            <!-- Device 1 Split View: QR + Camera -->
+            <div id="step-device1-split" class="step-view hidden">
+                <p class="text-center font-bold mb-2">Show QR to Device 2 & Scan their response</p>
+                
+                <!-- QR Code Section -->
+                <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <p class="text-sm font-semibold mb-2">Your QR (show to Device 2):</p>
+                    <div id="qr-display-split" class="mx-auto mb-2 flex justify-center" style="transform: scale(0.7);"></div>
+                    <div class="text-xs text-gray-500 text-center">
+                        <p>Size: <span id="qr-size-split">0</span> chars</p>
+                    </div>
+                </div>
+                
+                <!-- Camera Section -->
+                <div class="mb-4">
+                    <p class="text-sm font-semibold mb-2">Scan Device 2's response:</p>
+                    <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio: 4/3;">
+                        <video id="video-split" class="w-full h-full object-cover" autoplay playsinline></video>
+                        <button id="switch-camera-split" class="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 p-2 rounded-lg shadow-lg" title="Switch camera">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+                                <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="m18 22-3-3 3-3"></path>
+                                <path d="m6 2 3 3-3 3"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Scan QR -->
             <div id="step-scan" class="step-view hidden">
                 <p class="text-center mb-4" id="scan-title">Scan QR Code:</p>
@@ -486,16 +517,20 @@
             showStep('show');
             updateStatus(title);
             
-            // Auto-advance for Device 1: automatically start scanner
+            // Auto-advance for Device 1: show split view
             if (state.role === 'device1' && title.includes('Step 1')) {
-                // Start scanner immediately for Device 1
+                // Copy QR to split view
                 setTimeout(() => {
+                    const qrDiv = document.getElementById('qr-display-split');
+                    qrDiv.innerHTML = document.getElementById('qr-display').innerHTML;
+                    document.getElementById('qr-size-split').textContent = data.length;
+                    
+                    // Show split view and start camera
                     state.scanTarget = 'answer';
-                    document.getElementById('scan-title').textContent = 'Scan answer from Device 2:';
-                    showStep('scan');
-                    startScanner();
-                    updateStatus('Show QR to Device 2, then scan their response');
-                }, 500); // Brief delay to ensure QR is visible
+                    showStep('device1-split');
+                    startScannerSplit();
+                    updateStatus('Show QR to Device 2 & scan their response');
+                }, 100);
             }
         }
 
@@ -565,6 +600,47 @@
             } catch (error) {
                 updateStatus('Camera error', 'error');
                 showStep('manual');
+            }
+        }
+
+        async function startScannerSplit() {
+            try {
+                // Use selected camera (default to selfie cam for easier scanning)
+                state.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: state.cameraFacing }
+                });
+                
+                const video = document.getElementById('video-split');
+                video.srcObject = state.stream;
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                const scan = () => {
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0);
+                        
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        
+                        if (code) {
+                            stopCamera();
+                            if (state.scanTarget === 'answer') {
+                                processAnswer(code.data);
+                            }
+                            return;
+                        }
+                    }
+                    if (state.stream) requestAnimationFrame(scan);
+                };
+                
+                video.addEventListener('loadedmetadata', scan);
+                
+            } catch (error) {
+                updateStatus('Camera error in split view', 'error');
+                console.error('Split scanner error:', error);
             }
         }
 
@@ -925,6 +1001,30 @@
                 // Try to fall back to other camera
                 state.cameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
                 await startScanner();
+            }
+        });
+
+        // Camera switch button in split view
+        document.getElementById('switch-camera-split').addEventListener('click', async () => {
+            // Toggle camera facing
+            state.cameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
+            console.log('Switching to', state.cameraFacing, 'camera in split view');
+            
+            // Stop current stream
+            if (state.stream) {
+                state.stream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Restart scanner with new camera
+            try {
+                await startScannerSplit();
+                updateStatus(`Switched to ${state.cameraFacing === 'user' ? 'front' : 'back'} camera`, 'info');
+            } catch (error) {
+                console.error('Camera switch error:', error);
+                updateStatus('Failed to switch camera', 'error');
+                // Try to fall back to other camera
+                state.cameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
+                await startScannerSplit();
             }
         });
     </script>
