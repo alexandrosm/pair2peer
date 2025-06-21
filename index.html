@@ -22,44 +22,28 @@
         <div class="text-center mb-4">
             <h1 class="text-2xl font-bold">Pair2Peer</h1>
             <p class="text-xs text-gray-500" id="version-display">Loading...</p>
+            <!-- Debug toggle moved here -->
+            <button id="debug-toggle" class="text-xs text-gray-400 hover:text-gray-600 mt-2">
+                ▶ Debug
+            </button>
+            <div id="debug-options" class="hidden mt-2">
+                <button id="selftest-btn" class="text-xs bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded mr-2">
+                    Test
+                </button>
+                <button id="toggle-console" class="text-xs bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded">
+                    Console
+                </button>
+            </div>
         </div>
         
         <!-- Main container with flexible height -->
         <div class="bg-white rounded-lg shadow-lg p-4">
             <div id="status" class="mb-3 p-2 rounded-lg bg-blue-50 text-blue-800 text-center text-sm">
-                Ready to connect
+                Starting camera...
             </div>
             
-            <!-- Start -->
-            <div id="step-start" class="step-view">
-                <p class="text-gray-600 text-center mb-3">Direct P2P - No Server Needed</p>
-                <div class="text-xs text-gray-500 mb-3 p-2 bg-gray-50 rounded">
-                    <p class="font-semibold">Quick Start:</p>
-                    <p>1. Both devices click their button</p>
-                    <p>2. Point cameras at each other's QR</p>
-                    <p>3. Connection established automatically!</p>
-                </div>
-                <button id="device1-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
-                    Device 1 (Start) - Shows QR
-                </button>
-                <button id="device2-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
-                    Device 2 (Join) - Scans QR
-                </button>
-                
-                <!-- Debug toggle -->
-                <div class="text-center mt-4">
-                    <button id="debug-toggle" class="text-xs text-gray-500 hover:text-gray-700">
-                        ▶ Debug Options
-                    </button>
-                    <div id="debug-options" class="hidden mt-2">
-                        <button id="selftest-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-sm mb-2">
-                            Self Test
-                        </button>
-                        <button id="toggle-console" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-sm">
-                            Toggle Console
-                        </button>
-                    </div>
-                </div>
+            <!-- Auto-starts, no UI needed -->
+            <div id="step-start" class="step-view hidden">
             </div>
 
             <!-- Removed Show QR step - using split view directly -->
@@ -1068,10 +1052,10 @@
                 });
                 
                 // Set scan target based on role
-                state.scanTarget = deviceRole === 'device1' ? 'answer' : 'offer';
+                state.scanTarget = 'both'; // Accept both offers and answers
                 showStep('device1-split');
                 startScannerSplit();
-                updateStatus(`${deviceRole === 'device1' ? 'Device 1' : 'Device 2'}: Show QR & scan other device`);
+                updateStatus('Point cameras at each other');
                 
             } catch (error) {
                 console.error('Failed to create offer:', error);
@@ -1079,9 +1063,7 @@
             }
         }
         
-        // Event listeners
-        document.getElementById('device1-btn').addEventListener('click', () => startUnified('device1'));
-        document.getElementById('device2-btn').addEventListener('click', () => startUnified('device2'));
+        // Event listeners - removed device buttons since we auto-start
         
         document.getElementById('next-btn').addEventListener('click', () => {
             if (state.role === 'device1') {
@@ -1193,6 +1175,14 @@
         
         // Pre-generate on load
         preGenerateOffer();
+        
+        // Auto-start immediately
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Small delay to ensure everything is loaded
+            setTimeout(() => {
+                startUnified('auto');
+            }, 100);
+        });
         
         // Self-test function
         async function runSelfTest() {
