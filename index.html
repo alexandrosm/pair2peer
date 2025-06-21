@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.2</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.3</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -94,14 +94,14 @@
 
     <script type="module">
         // Import functions from modules
-        import { base45Encode, base45Decode } from './base45-lib.js';
-        import { compactSDP, expandSDP } from './sdp-compact.js';
-        import { encodeBinary, decodeBinary } from './binary-codec.js';
+        import { base45Encode, base45Decode } from './base45-lib.js?v=1.0.3';
+        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.0.3';
+        import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.0.3';
         
         // Version info
-        const APP_VERSION = '1.0.2';
+        const APP_VERSION = '1.0.3';
         const BUILD_DATE = new Date().toISOString();
-        const GIT_COMMIT = 'f916e32'; // Will be updated by CI/CD
+        const GIT_COMMIT = '9598eb0'; // Will be updated by CI/CD
         
         console.log(`%cPair2Peer v${APP_VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
@@ -265,10 +265,22 @@
                 // Set remote description (expand from compact format)
                 const expandedSDP = expandSDP(data, 'offer');
                 console.log('Expanded SDP:', expandedSDP);
-                await state.pc.setRemoteDescription({
-                    type: 'offer',
-                    sdp: expandedSDP
-                });
+                
+                // Check if the problematic line exists
+                if (expandedSDP.includes('a=end-of-candidates')) {
+                    console.error('WARNING: SDP contains end-of-candidates line!');
+                }
+                
+                try {
+                    await state.pc.setRemoteDescription({
+                        type: 'offer',
+                        sdp: expandedSDP
+                    });
+                } catch (sdpError) {
+                    console.error('SDP Error:', sdpError);
+                    console.error('Full SDP was:', expandedSDP);
+                    throw sdpError;
+                }
                 
                 // ICE candidates are now bundled in the SDP
                 
