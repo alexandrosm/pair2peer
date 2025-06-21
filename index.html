@@ -84,12 +84,12 @@
                 </button>
             </div>
 
-            <!-- Device 1 Split View: QR + Camera -->
+            <!-- Split View: QR + Camera (used by both devices) -->
             <div id="step-device1-split" class="step-view hidden">
                 <!-- QR Code at top -->
                 <div class="mb-3">
                     <div id="qr-display-split" class="mx-auto mb-2 flex justify-center"></div>
-                    <p class="text-center text-sm text-gray-600">Show to Device 2</p>
+                    <p class="text-center text-sm text-gray-600">Show your QR</p>
                 </div>
                 
                 <!-- Camera Section -->
@@ -106,7 +106,7 @@
                             </svg>
                         </button>
                     </div>
-                    <p class="text-center text-sm text-gray-600 mt-1">Scan Device 2's QR</p>
+                    <p class="text-center text-sm text-gray-600 mt-1">Scan their QR</p>
                 </div>
             </div>
 
@@ -704,6 +704,86 @@
                 updateStatus('Error: ' + error.message, 'error');
             }
         }
+        
+        async function processScannedOffer(compressedData) {
+            try {
+                // Prevent processing if we're already connected
+                if (state.pc && (state.pc.connectionState === 'connected' || 
+                                 state.pc.connectionState === 'connecting')) {
+                    console.log('Already connected/connecting, ignoring scanned offer');
+                    return;
+                }
+                
+                const data = decompressData(compressedData);
+                if (!data || data.t !== 'o') throw new Error('Invalid offer');
+                
+                console.log('Processing scanned offer (simultaneous mode):', data);
+                updateStatus('Processing offer...');
+                
+                // Close existing peer connection if any
+                if (state.pc) {
+                    state.pc.close();
+                }
+                
+                // Setup new peer connection
+                await setupPeerConnection();
+                
+                // Set remote description
+                const expandedSDP = expandSDP(data, 'offer');
+                await state.pc.setRemoteDescription({
+                    type: 'offer',
+                    sdp: expandedSDP
+                });
+                
+                // Setup data channel handler for incoming channel
+                state.pc.ondatachannel = (event) => {
+                    console.log('Data channel received');
+                    state.dc = event.channel;
+                    setupDataChannel();
+                };
+                
+                // Create answer
+                const answer = await state.pc.createAnswer();
+                await state.pc.setLocalDescription(answer);
+                
+                // Wait for ICE gathering
+                await new Promise((resolve) => {
+                    if (state.pc.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        state.pc.onicegatheringstatechange = () => {
+                            if (state.pc.iceGatheringState === 'complete') {
+                                resolve();
+                            }
+                        };
+                        setTimeout(resolve, 3000);
+                    }
+                });
+                
+                // Create answer data
+                const answerData = {
+                    t: 'a',
+                    ...compactSDP(state.pc.localDescription.sdp)
+                };
+                
+                // Update our QR to show the answer
+                const compressed = compressData(answerData);
+                const qrDiv = document.getElementById('qr-display-split');
+                qrDiv.innerHTML = '';
+                new QRCode(qrDiv, {
+                    text: compressed,
+                    width: 240,
+                    height: 240,
+                    correctLevel: QRCode.CorrectLevel.L
+                });
+                
+                updateStatus('Answer generated - show QR to other device');
+                
+            } catch (error) {
+                console.error('processScannedOffer error:', error);
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
 
         function showQR(data, title) {
             document.getElementById('show-title').textContent = title;
@@ -919,9 +999,18 @@
                         if (code) {
                             console.log('QR code detected:', code.data.substring(0, 50) + '...');
                             console.log('QR code length:', code.data.length);
-                            stopCamera();
-                            if (state.scanTarget === 'answer') {
-                                processAnswer(code.data);
+                            
+                            // Determine what type of data we scanned
+                            const decompressed = decompressData(code.data);
+                            if (decompressed) {
+                                stopCamera();
+                                if (decompressed.t === 'o') {
+                                    // We scanned an offer
+                                    processScannedOffer(code.data);
+                                } else if (decompressed.t === 'a') {
+                                    // We scanned an answer
+                                    processAnswer(code.data);
+                                }
                             }
                             return;
                         }
@@ -944,15 +1033,75 @@
             }
         }
 
-        // Event listeners
-        document.getElementById('device1-btn').addEventListener('click', startDevice1);
+        // New unified start function for both devices
+        async function startUnified(deviceRole) {
+            state.role = deviceRole;
+            updateStatus('Creating offer...');
+            
+            try {
+                // Always create an offer (both devices)
+                await setupPeerConnection();
+                
+                // Create data channel
+                state.dc = state.pc.createDataChannel('data', {
+                    ordered: true,
+                    maxRetransmits: 3
+                });
+                setupDataChannel();
+                
+                // Create offer
+                const offer = await state.pc.createOffer();
+                await state.pc.setLocalDescription(offer);
+                
+                // Wait for ICE gathering
+                await new Promise((resolve) => {
+                    if (state.pc.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        state.pc.onicegatheringstatechange = () => {
+                            if (state.pc.iceGatheringState === 'complete') {
+                                resolve();
+                            }
+                        };
+                        setTimeout(resolve, 3000);
+                    }
+                });
+                
+                // Create offer data
+                const offerData = {
+                    t: 'o',
+                    ...compactSDP(state.pc.localDescription.sdp)
+                };
+                
+                state.lastData = offerData;
+                const compressed = compressData(offerData);
+                state.lastQRData = compressed;
+                
+                // Show split view with QR and camera
+                const qrDiv = document.getElementById('qr-display-split');
+                qrDiv.innerHTML = '';
+                new QRCode(qrDiv, {
+                    text: compressed,
+                    width: 240,
+                    height: 240,
+                    correctLevel: QRCode.CorrectLevel.L
+                });
+                
+                // Set scan target based on role
+                state.scanTarget = deviceRole === 'device1' ? 'answer' : 'offer';
+                showStep('device1-split');
+                startScannerSplit();
+                updateStatus(`${deviceRole === 'device1' ? 'Device 1' : 'Device 2'}: Show QR & scan other device`);
+                
+            } catch (error) {
+                console.error('Failed to create offer:', error);
+                updateStatus('Error: ' + error.message, 'error');
+            }
+        }
         
-        document.getElementById('device2-btn').addEventListener('click', () => {
-            state.scanTarget = 'offer';
-            document.getElementById('scan-title').textContent = 'Scan offer from Device 1:';
-            showStep('scan');
-            startScanner();
-        });
+        // Event listeners
+        document.getElementById('device1-btn').addEventListener('click', () => startUnified('device1'));
+        document.getElementById('device2-btn').addEventListener('click', () => startUnified('device2'));
         
         document.getElementById('next-btn').addEventListener('click', () => {
             if (state.role === 'device1') {
