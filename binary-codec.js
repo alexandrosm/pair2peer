@@ -25,6 +25,9 @@ export function encodeBinary(data) {
     const fpHex = (data.f || '').replace(/:/g, '');
     const fpBytes = fpHex.length / 2;
     
+    // Add fingerprint length byte
+    buffer.push(fpBytes);
+    
     for (let i = 0; i < fpHex.length; i += 2) {
         buffer.push(parseInt(fpHex.substr(i, 2), 16));
     }
@@ -95,20 +98,10 @@ export function decodeBinary(bytes) {
         offset++;
     }
     
-    // Fingerprint - detect length based on remaining data
-    // Calculate fingerprint length by looking at total message size
-    const baseSize = 29; // 1 (type/setup) + 4 (ufrag) + 24 (pwd)
-    const remainingBytes = bytes.length - baseSize;
-    
-    // Determine fingerprint length
-    let fpLength = 32; // Default SHA-256
-    if (remainingBytes >= 20 + 1 + 7 && remainingBytes < 32 + 1 + 7) {
-        fpLength = 20; // SHA-1
-    } else if (remainingBytes >= 48 + 1 + 7 && remainingBytes < 64 + 1 + 7) {
-        fpLength = 48; // SHA-384
-    } else if (remainingBytes >= 64 + 1 + 7) {
-        fpLength = 64; // SHA-512
-    }
+    // Read fingerprint length byte
+    const fpLength = bytes[offset++];
+    console.log('Binary decode - fingerprint length byte:', fpLength);
+    console.log('Binary decode - offset before fingerprint:', offset);
     
     let fingerprint = '';
     for (let i = 0; i < fpLength && offset < bytes.length - 1; i++) {
@@ -118,7 +111,10 @@ export function decodeBinary(bytes) {
     }
     
     // 1 byte: candidate count
+    console.log('Binary decode - offset after fingerprint:', offset);
+    console.log('Binary decode - bytes remaining:', bytes.length - offset);
     const candidateCount = bytes[offset++];
+    console.log('Binary decode - candidate count:', candidateCount);
     const candidates = [];
     
     // Decode candidates
