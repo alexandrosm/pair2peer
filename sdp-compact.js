@@ -37,6 +37,12 @@ export function compactSDP(sdp) {
             
             console.log(`compactSDP: Protocol="${protocol}", IP="${ip}", Port="${port}", Type="${typ}"`);
             
+            // Skip IPv6 candidates (contain colons in IP)
+            if (ip.includes(':')) {
+                console.log(`compactSDP: Skipping IPv6 candidate: ${ip}`);
+                return;
+            }
+            
             // Skip TCP candidates with port 9 (active TCP candidates)
             if (protocol === 'tcp' && port === '9') {
                 console.log(`compactSDP: Skipping TCP active candidate with port 9`);

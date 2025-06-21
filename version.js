@@ -1,5 +1,5 @@
 // Centralized version configuration
-export const VERSION = '1.5.3';
+export const VERSION = '1.5.4';
 export const BUILD_DATE = new Date().toISOString();
 export const GIT_COMMIT = 'f8b24e1'; // Updated by CI/CD
 
