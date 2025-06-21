@@ -120,7 +120,8 @@ export function expandSDP(compact, type = 'offer') {
         `a=fingerprint:sha-256 ${compact.f}`,
         `a=setup:${compact.s === 'a' ? 'actpass' : compact.s === 'p' ? 'passive' : 'active'}`,
         'a=mid:0',
-        'a=sctp-port:5000'
+        'a=sctp-port:5000',
+        'a=max-message-size:262144'
     ];
     
     // Add candidates
