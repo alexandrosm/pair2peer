@@ -16,24 +16,28 @@
     <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
-    <div class="w-full max-w-md">
-        <div class="bg-white rounded-lg shadow-lg p-6">
-            <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">Loading...</p>
-            
-            <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
+<body class="bg-gray-50 min-h-screen p-4">
+    <div class="w-full max-w-md mx-auto">
+        <!-- Header - Always at top -->
+        <div class="text-center mb-4">
+            <h1 class="text-2xl font-bold">Pair2Peer</h1>
+            <p class="text-xs text-gray-500" id="version-display">Loading...</p>
+        </div>
+        
+        <!-- Main container with flexible height -->
+        <div class="bg-white rounded-lg shadow-lg p-4">
+            <div id="status" class="mb-3 p-2 rounded-lg bg-blue-50 text-blue-800 text-center text-sm">
                 Ready to connect
             </div>
             
             <!-- Start -->
             <div id="step-start" class="step-view">
-                <p class="text-gray-600 text-center mb-4">Direct P2P - No Server Needed</p>
-                <div class="text-xs text-gray-500 mb-4 p-2 bg-gray-50 rounded">
-                    <p class="font-semibold">Instructions:</p>
-                    <p>1. Click "Device 1" on computer/first device</p>
-                    <p>2. Click "Device 2" on phone/second device</p>
-                    <p>3. Scan QR from Device 1 with Device 2</p>
+                <p class="text-gray-600 text-center mb-3">Direct P2P - No Server Needed</p>
+                <div class="text-xs text-gray-500 mb-3 p-2 bg-gray-50 rounded">
+                    <p class="font-semibold">Quick Start:</p>
+                    <p>1. Device 1: Shows QR code</p>
+                    <p>2. Device 2: Scans QR code</p>
+                    <p>3. Hold phones facing each other</p>
                 </div>
                 <button id="device1-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
                     Device 1 (Start) - Shows QR
@@ -41,25 +45,38 @@
                 <button id="device2-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
                     Device 2 (Join) - Scans QR
                 </button>
-                <button id="selftest-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-sm">
-                    Self Test (Debug)
-                </button>
+                
+                <!-- Debug toggle -->
+                <div class="text-center mt-4">
+                    <button id="debug-toggle" class="text-xs text-gray-500 hover:text-gray-700">
+                        ▶ Debug Options
+                    </button>
+                    <div id="debug-options" class="hidden mt-2">
+                        <button id="selftest-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-sm mb-2">
+                            Self Test
+                        </button>
+                        <button id="toggle-console" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-sm">
+                            Toggle Console
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Show QR -->
             <div id="step-show" class="step-view hidden">
-                <div class="text-center mb-4">
-                    <p class="text-lg font-bold mb-2" id="show-title">Share this:</p>
-                    <div id="qr-display" class="mx-auto mb-4 flex justify-center"></div>
-                    <div class="text-xs text-gray-500 mb-2">
-                        <p>QR Size: <span id="qr-size">0</span> chars</p>
-                        <p>QR Bits: <span id="qr-bits">0</span> bits</p>
-                        <p>Compression: <span id="compression-ratio">0</span>%</p>
-                        <p>Method: ASN.1 UPER + Base64</p>
-                    </div>
-                    <details class="text-xs">
-                        <summary class="cursor-pointer text-blue-600">Manual copy</summary>
-                        <textarea id="data-text" class="w-full h-20 p-2 border rounded text-xs font-mono mt-2" readonly></textarea>
+                <div class="text-center">
+                    <!-- QR at top for selfie cam alignment -->
+                    <div id="qr-display" class="mx-auto mb-3 flex justify-center"></div>
+                    <p class="text-sm font-semibold mb-2" id="show-title">Hold near camera</p>
+                    <details class="text-xs mb-3">
+                        <summary class="cursor-pointer text-blue-600">Stats & Manual</summary>
+                        <div class="mt-2">
+                            <div class="text-gray-500 mb-2">
+                                <p>Size: <span id="qr-size">0</span> chars</p>
+                                <p>Compression: <span id="compression-ratio">0</span>%</p>
+                            </div>
+                            <textarea id="data-text" class="w-full h-16 p-2 border rounded text-xs font-mono" readonly></textarea>
+                        </div>
                     </details>
                 </div>
                 <button id="next-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg">
@@ -69,20 +86,14 @@
 
             <!-- Device 1 Split View: QR + Camera -->
             <div id="step-device1-split" class="step-view hidden">
-                <p class="text-center font-bold mb-2">Show QR to Device 2 & Scan their response</p>
-                
-                <!-- QR Code Section -->
-                <div class="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <p class="text-sm font-semibold mb-2">Your QR (show to Device 2):</p>
-                    <div id="qr-display-split" class="mx-auto mb-2 flex justify-center" style="transform: scale(0.7);"></div>
-                    <div class="text-xs text-gray-500 text-center">
-                        <p>Size: <span id="qr-size-split">0</span> chars</p>
-                    </div>
+                <!-- QR Code at top -->
+                <div class="mb-3">
+                    <div id="qr-display-split" class="mx-auto mb-2 flex justify-center"></div>
+                    <p class="text-center text-sm text-gray-600">Show to Device 2</p>
                 </div>
                 
                 <!-- Camera Section -->
-                <div class="mb-4">
-                    <p class="text-sm font-semibold mb-2">Scan Device 2's response:</p>
+                <div class="mb-3">
                     <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio: 4/3;">
                         <video id="video-split" class="w-full h-full object-cover" autoplay playsinline></video>
                         <button id="switch-camera-split" class="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 p-2 rounded-lg shadow-lg" title="Switch camera">
@@ -95,6 +106,7 @@
                             </svg>
                         </button>
                     </div>
+                    <p class="text-center text-sm text-gray-600 mt-1">Scan Device 2's QR</p>
                 </div>
             </div>
 
@@ -171,7 +183,9 @@
             </div>
         </div>
         
-        <!-- Debug Panel -->
+        </div>
+        
+        <!-- Debug Panel - Hidden by default -->
         <div id="debug-panel" class="mt-4 bg-black text-green-400 rounded-lg p-4 font-mono text-xs overflow-auto max-h-64 hidden">
             <div class="flex justify-between items-center mb-2">
                 <span class="text-white font-bold">Debug Console</span>
@@ -202,6 +216,9 @@
             cameraFacing: 'user' // 'user' for selfie cam, 'environment' for back
         };
         
+        // Debug console is off by default
+        window.debugConsoleEnabled = false;
+        
         window.addDebugLog = function(message, type = 'log') {
             const timestamp = new Date().toLocaleTimeString();
             window.debugLogs.push({ timestamp, message, type });
@@ -215,9 +232,9 @@
             const panel = document.getElementById('debug-panel');
             const content = document.getElementById('debug-content');
             if (panel && content) {
-                // Always show panel on mobile devices
+                // Show panel on mobile devices if debug is enabled
                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                if (isMobile || window.state.role === 'device2') {
+                if ((isMobile || window.state.role === 'device2') && window.debugConsoleEnabled) {
                     panel.classList.remove('hidden');
                 }
                 
@@ -703,7 +720,6 @@
             const qrBits = Math.ceil(qrSize * 8); // Base64 uses 8 bits per char in QR
             
             document.getElementById('qr-size').textContent = `${qrSize} (${binarySize} bytes UPER)`;
-            document.getElementById('qr-bits').textContent = qrBits;
             document.getElementById('compression-ratio').textContent = 
                 Math.round((1 - qrBits / 7744) * 100); // vs original ~1KB
             
@@ -714,8 +730,8 @@
             try {
                 new QRCode(qrDiv, {
                     text: data,
-                    width: 256,
-                    height: 256,
+                    width: 320,
+                    height: 320,
                     correctLevel: QRCode.CorrectLevel.L
                 });
             } catch (error) {
@@ -731,8 +747,13 @@
                 // Copy QR to split view
                 setTimeout(() => {
                     const qrDiv = document.getElementById('qr-display-split');
-                    qrDiv.innerHTML = document.getElementById('qr-display').innerHTML;
-                    document.getElementById('qr-size-split').textContent = data.length;
+                    qrDiv.innerHTML = '';
+                    new QRCode(qrDiv, {
+                        text: data,
+                        width: 240,
+                        height: 240,
+                        correctLevel: QRCode.CorrectLevel.L
+                    });
                     
                     // Show split view and start camera
                     state.scanTarget = 'answer';
@@ -1266,6 +1287,32 @@
         
         // Add event listeners (only add selftest, others already exist)
         document.getElementById('selftest-btn').addEventListener('click', runSelfTest);
+        
+        // Debug toggle button
+        document.getElementById('debug-toggle').addEventListener('click', () => {
+            const toggle = document.getElementById('debug-toggle');
+            const options = document.getElementById('debug-options');
+            
+            if (options.classList.contains('hidden')) {
+                options.classList.remove('hidden');
+                toggle.textContent = '▼ Debug Options';
+            } else {
+                options.classList.add('hidden');
+                toggle.textContent = '▶ Debug Options';
+            }
+        });
+        
+        // Toggle console button
+        document.getElementById('toggle-console').addEventListener('click', () => {
+            const panel = document.getElementById('debug-panel');
+            window.debugConsoleEnabled = !window.debugConsoleEnabled;
+            
+            if (window.debugConsoleEnabled) {
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        });
         
         // Camera switch button
         document.getElementById('switch-camera-btn').addEventListener('click', async () => {
