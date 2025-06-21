@@ -659,9 +659,7 @@
             }
         }
         
-        // Add event listeners
-        document.getElementById('device1-btn').addEventListener('click', startDevice1);
-        document.getElementById('device2-btn').addEventListener('click', startDevice2);
+        // Add event listeners (only add selftest, others already exist)
         document.getElementById('selftest-btn').addEventListener('click', runSelfTest);
     </script>
 </body>
