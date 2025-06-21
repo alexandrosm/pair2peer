@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SDP Requirements Test</title>
+</head>
+<body>
+    <h1>Finding SDP Requirements</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            output.textContent = 'Testing SDP requirements step by step:\n\n';
+            
+            // Get a working browser SDP first
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const workingSDP = pc1.localDescription.sdp;
+            output.textContent += 'Got working browser SDP.\n';
+            output.textContent += 'Browser SDP lines:\n';
+            workingSDP.split('\n').forEach((line, i) => {
+                if (line.trim()) output.textContent += `${i}: ${line}\n`;
+            });
+            output.textContent += '\n';
+            
+            // Test if browser SDP works
+            const pc2 = new RTCPeerConnection();
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: workingSDP });
+                output.textContent += '✅ Browser SDP accepted\n\n';
+            } catch (e) {
+                output.textContent += '❌ Browser SDP rejected?!\n\n';
+                pc1.close();
+                pc2.close();
+                return;
+            }
+            
+            // Now test our minimal SDP
+            output.textContent += 'Testing our minimal SDP:\n';
+            const ourSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: ourSDP });
+                output.textContent += '✅ Our minimal SDP accepted!\n\n';
+            } catch (e) {
+                output.textContent += `❌ Our minimal SDP rejected: ${e.message}\n\n`;
+                
+                // Find what's different
+                output.textContent += 'Comparing SDPs to find differences:\n';
+                const ourLines = ourSDP.split('\n');
+                const browserLines = workingSDP.split('\n').filter(l => !l.includes('a=candidate'));
+                
+                // Check for missing lines
+                output.textContent += '\nLines in browser SDP but not in ours:\n';
+                browserLines.forEach(line => {
+                    if (!ourLines.some(ourLine => ourLine.trim() === line.trim())) {
+                        output.textContent += `Missing: ${line}\n`;
+                    }
+                });
+                
+                // Try adding browser's session/media lines
+                output.textContent += '\nTrying with browser\'s exact structure:\n';
+                const hybridSDP = browserLines.join('\r\n');
+                
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: hybridSDP });
+                    output.textContent += '✅ Browser structure without candidates works!\n';
+                    
+                    // Now add a simple host candidate
+                    const withHost = hybridSDP + '\r\na=candidate:1 1 udp 2122260223 192.168.1.100 50000 typ host generation 0';
+                    try {
+                        await pc2.setRemoteDescription({ type: 'offer', sdp: withHost });
+                        output.textContent += '✅ Host candidate works with browser structure!\n';
+                        
+                        // Now try srflx
+                        const withSrflx = withHost + '\r\na=candidate:2 1 udp 1685855999 99.99.99.99 50000 typ srflx raddr 192.168.1.100 rport 50000 generation 0';
+                        try {
+                            await pc2.setRemoteDescription({ type: 'offer', sdp: withSrflx });
+                            output.textContent += '✅ SRFLX works with browser structure!\n';
+                        } catch (e) {
+                            output.textContent += '❌ SRFLX still fails\n';
+                        }
+                    } catch (e) {
+                        output.textContent += '❌ Host candidate fails\n';
+                    }
+                } catch (e) {
+                    output.textContent += '❌ Browser structure fails\n';
+                }
+            }
+            
+            pc1.close();
+            pc2.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

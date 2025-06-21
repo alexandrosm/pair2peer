@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SRFLX Format Details Test</title>
+</head>
+<body>
+    <h1>Testing SRFLX Format Details</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const pc = new RTCPeerConnection();
+            
+            const baseSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            // Test exact line from error
+            const errorLine = 'a=candidate:5 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0';
+            
+            output.textContent = 'Testing exact error line and variations:\n\n';
+            
+            const tests = [
+                {
+                    name: 'Exact error line',
+                    line: errorLine
+                },
+                {
+                    name: 'With double space before typ',
+                    line: 'a=candidate:5 1 udp 1685855999 24.17.60.171 64441  typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'With foundation as string',
+                    line: 'a=candidate:foundation5 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'Different priority (host-like)',
+                    line: 'a=candidate:5 1 udp 2122260223 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'Component 0 instead of 1',
+                    line: 'a=candidate:5 0 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'With trailing space',
+                    line: 'a=candidate:5 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0 '
+                },
+                {
+                    name: 'With network-id',
+                    line: 'a=candidate:5 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0 network-id 1'
+                },
+                {
+                    name: 'Large foundation like browser',
+                    line: 'a=candidate:832894133 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'Without spaces around equals',
+                    line: 'a=candidate:5 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                }
+            ];
+            
+            for (const test of tests) {
+                output.textContent += `Testing: ${test.name}\n`;
+                output.textContent += `Line: "${test.line}"\n`;
+                output.textContent += `Length: ${test.line.length} chars\n`;
+                
+                // Check for hidden characters
+                const bytes = [];
+                for (let i = 0; i < test.line.length; i++) {
+                    bytes.push(test.line.charCodeAt(i));
+                }
+                if (bytes.some(b => b < 32 || b > 126)) {
+                    output.textContent += `Hidden chars found: ${bytes.filter(b => b < 32 || b > 126)}\n`;
+                }
+                
+                const sdp = baseSDP + '\r\n' + test.line;
+                
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp });
+                    output.textContent += `✅ ACCEPTED\n\n`;
+                } catch (e) {
+                    output.textContent += `❌ REJECTED: ${e.message}\n\n`;
+                }
+            }
+            
+            // Also test what Chrome generates
+            output.textContent += '\nGetting real Chrome SRFLX for comparison...\n';
+            const pc2 = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            pc2.createDataChannel('test');
+            const offer = await pc2.createOffer();
+            await pc2.setLocalDescription(offer);
+            
+            let foundSrflx = false;
+            pc2.onicecandidate = (e) => {
+                if (e.candidate && e.candidate.type === 'srflx' && !foundSrflx) {
+                    foundSrflx = true;
+                    output.textContent += `\nReal Chrome SRFLX:\n${e.candidate.candidate}\n`;
+                    output.textContent += `Length: ${e.candidate.candidate.length} chars\n`;
+                }
+            };
+            
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            pc.close();
+            pc2.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Proper SRFLX Format Test</title>
+</head>
+<body>
+    <h1>Testing Proper SRFLX Format</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const baseSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            output.textContent = 'Testing SRFLX with raddr 0.0.0.0 and rport 0:\n\n';
+            
+            const tests = [
+                {
+                    name: 'Our format with real raddr/rport',
+                    line: 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'With raddr 0.0.0.0 rport 0 (like browser)',
+                    line: 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 0.0.0.0 rport 0 generation 0'
+                },
+                {
+                    name: 'Browser format with a= prefix',
+                    line: 'a=candidate:677791226 1 udp 1677729535 24.17.60.171 64604 typ srflx raddr 0.0.0.0 rport 0 generation 0 ufrag test network-cost 999'
+                },
+                {
+                    name: 'Simple srflx with zeros',
+                    line: 'a=candidate:1 1 udp 1677729535 24.17.60.171 64441 typ srflx raddr 0.0.0.0 rport 0 generation 0'
+                }
+            ];
+            
+            const pc = new RTCPeerConnection();
+            
+            for (const test of tests) {
+                output.textContent += `Testing: ${test.name}\n`;
+                const sdp = baseSDP + '\r\n' + test.line;
+                
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp });
+                    output.textContent += `✅ ACCEPTED!\n\n`;
+                } catch (e) {
+                    output.textContent += `❌ REJECTED: ${e.message}\n\n`;
+                }
+            }
+            
+            // Also test getting the full SDP from browser
+            output.textContent += '\nGetting full browser SDP with SRFLX...\n';
+            const pc2 = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            pc2.createDataChannel('test');
+            const offer = await pc2.createOffer();
+            await pc2.setLocalDescription(offer);
+            
+            // Wait for ICE gathering
+            await new Promise(resolve => {
+                if (pc2.iceGatheringState === 'complete') {
+                    resolve();
+                } else {
+                    pc2.addEventListener('icegatheringstatechange', () => {
+                        if (pc2.iceGatheringState === 'complete') {
+                            resolve();
+                        }
+                    });
+                    setTimeout(resolve, 3000);
+                }
+            });
+            
+            const fullSDP = pc2.localDescription.sdp;
+            const srflxLines = fullSDP.split('\n').filter(line => line.includes('typ srflx'));
+            
+            output.textContent += `Found ${srflxLines.length} SRFLX lines in browser SDP:\n`;
+            srflxLines.forEach((line, i) => {
+                output.textContent += `${i+1}. ${line}\n`;
+            });
+            
+            // Test if another PC can accept this SDP
+            const pc3 = new RTCPeerConnection();
+            try {
+                await pc3.setRemoteDescription({ type: 'offer', sdp: fullSDP });
+                output.textContent += '\n✅ Another PC accepts browser-generated SDP with SRFLX\n';
+            } catch (e) {
+                output.textContent += '\n❌ Another PC rejects browser SDP: ' + e.message + '\n';
+            }
+            
+            pc.close();
+            pc2.close();
+            pc3.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

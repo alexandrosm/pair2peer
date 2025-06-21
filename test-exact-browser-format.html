@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Exact Browser Format</title>
+</head>
+<body>
+    <h1>Testing Exact Browser SRFLX Format</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // First, generate a real browser SDP with STUN
+            output.textContent = 'Generating browser SDP with STUN server...\n\n';
+            
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            let browserSrflx = null;
+            let allCandidates = [];
+            
+            pc.onicecandidate = (e) => {
+                if (e.candidate) {
+                    allCandidates.push(e.candidate.candidate);
+                    if (e.candidate.type === 'srflx') {
+                        browserSrflx = e.candidate.candidate;
+                        output.textContent += `Found browser SRFLX: ${browserSrflx}\n\n`;
+                    }
+                }
+            };
+            
+            pc.createDataChannel('test');
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            // Wait for ICE gathering
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            output.textContent += 'All candidates:\n';
+            allCandidates.forEach((c, i) => {
+                output.textContent += `${i+1}. ${c}\n`;
+            });
+            
+            // Now test various formats
+            const baseSDp = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            output.textContent += '\n\nTesting different SRFLX formats:\n\n';
+            
+            const testPc = new RTCPeerConnection();
+            
+            // Test cases
+            const tests = [
+                {
+                    name: 'Our format',
+                    line: 'a=candidate:5 1 udp 1685855999 24.17.60.171 61539 typ srflx raddr 192.168.1.7 rport 61539 generation 0'
+                },
+                {
+                    name: 'Browser format (if found)',
+                    line: browserSrflx
+                },
+                {
+                    name: 'Without generation',
+                    line: 'a=candidate:5 1 udp 1685855999 24.17.60.171 61539 typ srflx raddr 192.168.1.7 rport 61539'
+                },
+                {
+                    name: 'With tcptype passive',
+                    line: 'a=candidate:5 1 udp 1685855999 24.17.60.171 61539 typ srflx raddr 192.168.1.7 rport 61539 generation 0 tcptype passive'
+                },
+                {
+                    name: 'Priority as string',
+                    line: 'a=candidate:5 1 udp 1845501695 24.17.60.171 61539 typ srflx raddr 192.168.1.7 rport 61539 generation 0'
+                },
+                {
+                    name: 'Different component',
+                    line: 'a=candidate:5 2 udp 1685855999 24.17.60.171 61539 typ srflx raddr 192.168.1.7 rport 61539 generation 0'
+                }
+            ].filter(t => t.line);
+            
+            for (const test of tests) {
+                const sdp = baseSDp + '\r\n' + test.line;
+                output.textContent += `Testing: ${test.name}\n`;
+                output.textContent += `Line: ${test.line}\n`;
+                
+                try {
+                    await testPc.setRemoteDescription({ type: 'offer', sdp });
+                    output.textContent += `Result: ✅ ACCEPTED\n\n`;
+                } catch (e) {
+                    output.textContent += `Result: ❌ REJECTED\n`;
+                    output.textContent += `Error: ${e.message}\n\n`;
+                    
+                    // Try to understand why
+                    const parts = test.line.split(' ');
+                    output.textContent += `Analysis:\n`;
+                    output.textContent += `  Parts count: ${parts.length}\n`;
+                    output.textContent += `  Foundation: ${parts[0]}\n`;
+                    output.textContent += `  Component: ${parts[1]}\n`;
+                    output.textContent += `  Transport: ${parts[2]}\n`;
+                    output.textContent += `  Priority: ${parts[3]}\n`;
+                    output.textContent += `  IP: ${parts[4]}\n`;
+                    output.textContent += `  Port: ${parts[5]}\n`;
+                    output.textContent += `  Type keyword: ${parts[6]}\n`;
+                    output.textContent += `  Type value: ${parts[7]}\n`;
+                    output.textContent += `  Raddr keyword: ${parts[8]}\n`;
+                    output.textContent += `  Raddr value: ${parts[9]}\n`;
+                    output.textContent += `  Rport keyword: ${parts[10]}\n`;
+                    output.textContent += `  Rport value: ${parts[11]}\n\n`;
+                }
+            }
+            
+            pc.close();
+            testPc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

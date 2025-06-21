@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebRTC Context Test</title>
+</head>
+<body>
+    <h1>Testing WebRTC Context Requirements</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            output.textContent = 'Testing different WebRTC contexts:\n\n';
+            
+            // Test 1: Fresh PeerConnection
+            output.textContent += '1. Fresh PeerConnection:\n';
+            const pc1 = new RTCPeerConnection();
+            
+            const testSDP = `v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0\r\na=extmap-allow-mixed\r\na=msid-semantic: WMS\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\nc=IN IP4 0.0.0.0\r\na=ice-ufrag:test\r\na=ice-pwd:test123456789012345678\r\na=ice-options:trickle\r\na=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF\r\na=setup:actpass\r\na=mid:0\r\na=sctp-port:5000`;
+            
+            try {
+                await pc1.setRemoteDescription({ type: 'offer', sdp: testSDP });
+                output.textContent += '✅ Accepted\n';
+            } catch (e) {
+                output.textContent += `❌ Rejected: ${e.message}\n`;
+            }
+            
+            // Test 2: PeerConnection that created an offer first
+            output.textContent += '\n2. PeerConnection after creating offer:\n';
+            const pc2 = new RTCPeerConnection();
+            pc2.createDataChannel('test');
+            await pc2.createOffer();
+            
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: testSDP });
+                output.textContent += '✅ Accepted\n';
+            } catch (e) {
+                output.textContent += `❌ Rejected: ${e.message}\n`;
+            }
+            
+            // Test 3: Copy exact browser format
+            output.textContent += '\n3. Getting exact browser SDP format:\n';
+            const pc3 = new RTCPeerConnection();
+            pc3.createDataChannel('test');
+            const offer = await pc3.createOffer();
+            await pc3.setLocalDescription(offer);
+            
+            const browserSDP = pc3.localDescription.sdp;
+            
+            // Remove only the candidates, keep everything else
+            const sdpLines = browserSDP.split(/\r\n/);
+            const nonCandidateLines = sdpLines.filter(line => !line.startsWith('a=candidate:'));
+            const templateSDP = nonCandidateLines.join('\r\n');
+            
+            output.textContent += 'Template SDP (browser format, no candidates):\n';
+            output.textContent += templateSDP + '\n\n';
+            
+            // Test this template
+            const pc4 = new RTCPeerConnection();
+            try {
+                await pc4.setRemoteDescription({ type: 'offer', sdp: templateSDP });
+                output.textContent += '✅ Template accepted\n';
+                
+                // Now add our candidate
+                const withCandidate = templateSDP + '\r\na=candidate:1 1 udp 2122260223 192.168.1.7 50000 typ host generation 0';
+                try {
+                    await pc4.setRemoteDescription({ type: 'offer', sdp: withCandidate });
+                    output.textContent += '✅ Host candidate works\n';
+                    
+                    const withSrflx = withCandidate + '\r\na=candidate:2 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.7 rport 50000 generation 0';
+                    try {
+                        await pc4.setRemoteDescription({ type: 'offer', sdp: withSrflx });
+                        output.textContent += '✅ SRFLX candidate works!\n';
+                    } catch (e) {
+                        output.textContent += `❌ SRFLX rejected: ${e.message}\n`;
+                    }
+                } catch (e) {
+                    output.textContent += `❌ Host rejected: ${e.message}\n`;
+                }
+            } catch (e) {
+                output.textContent += `❌ Template rejected: ${e.message}\n`;
+            }
+            
+            pc1.close();
+            pc2.close();
+            pc3.close();
+            pc4.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

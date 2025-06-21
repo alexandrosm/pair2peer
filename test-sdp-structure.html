@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SDP Structure Test</title>
+</head>
+<body>
+    <h1>Testing SDP Structure Requirements</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            output.textContent = 'Testing SDP structure for SRFLX candidates:\n\n';
+            
+            const pc = new RTCPeerConnection();
+            
+            // Test 1: Minimal SDP with only host candidate
+            output.textContent += '1. Testing minimal SDP with host candidate:\n';
+            const hostOnly = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000
+a=candidate:1 1 udp 2122260223 192.168.1.7 50000 typ host generation 0`;
+
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: hostOnly });
+                output.textContent += '✅ Host candidate accepted\n\n';
+            } catch (e) {
+                output.textContent += '❌ Host candidate rejected\n\n';
+            }
+            
+            // Test 2: Add SRFLX after host
+            output.textContent += '2. Adding SRFLX after host:\n';
+            const withSrflx = hostOnly + '\na=candidate:2 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.7 rport 50000 generation 0';
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: withSrflx });
+                output.textContent += '✅ SRFLX accepted when host is present\n\n';
+            } catch (e) {
+                output.textContent += '❌ SRFLX rejected even with host\n\n';
+            }
+            
+            // Test 3: Check if media section matters
+            output.textContent += '3. Testing with audio media section:\n';
+            const audioSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=audio 9 UDP/TLS/RTP/SAVPF 111
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sendrecv
+a=rtcp-mux
+a=rtpmap:111 opus/48000/2
+a=candidate:1 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.7 rport 50000 generation 0`;
+
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: audioSDP });
+                output.textContent += '✅ SRFLX accepted with audio media\n\n';
+            } catch (e) {
+                output.textContent += '❌ SRFLX rejected with audio media\n\n';
+            }
+            
+            // Test 4: Check c= line
+            output.textContent += '4. Testing with specific c= line:\n';
+            const withCLine = hostOnly.replace('c=IN IP4 0.0.0.0', 'c=IN IP4 24.17.60.171') + 
+                '\na=candidate:2 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.7 rport 50000 generation 0';
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: withCLine });
+                output.textContent += '✅ SRFLX accepted with matching c= line\n\n';
+            } catch (e) {
+                output.textContent += '❌ SRFLX rejected even with matching c= line\n\n';
+            }
+            
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

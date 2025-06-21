@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SDP Validation Test</title>
+</head>
+<body>
+    <h1>SDP Line-by-Line Validation</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const pc = new RTCPeerConnection();
+            
+            // Base SDP that works
+            const baseSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            // Test base SDP
+            output.textContent = '1. Testing base SDP (no candidates)...\n';
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: baseSDP });
+                output.textContent += '✅ Base SDP accepted\n\n';
+            } catch (e) {
+                output.textContent += '❌ Base SDP rejected: ' + e.message + '\n\n';
+                return;
+            }
+            
+            // Now add candidates one by one
+            const candidates = [
+                'a=candidate:1 1 udp 2122260223 169.254.199.180 61536 typ host generation 0',
+                'a=candidate:2 1 udp 2122260223 172.27.80.1 61537 typ host generation 0',
+                'a=candidate:3 1 udp 2122260223 172.27.192.1 61538 typ host generation 0',
+                'a=candidate:4 1 udp 2122260223 192.168.1.7 61539 typ host generation 0',
+                'a=candidate:5 1 udp 1685855999 24.17.60.171 61539 typ srflx raddr 192.168.1.7 rport 61539 generation 0'
+            ];
+            
+            let workingSDP = baseSDP;
+            
+            for (let i = 0; i < candidates.length; i++) {
+                output.textContent += `2.${i+1} Adding candidate ${i+1}:\n`;
+                output.textContent += `     ${candidates[i]}\n`;
+                
+                const testSDP = workingSDP + '\r\n' + candidates[i];
+                
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: testSDP });
+                    output.textContent += '     ✅ Accepted\n\n';
+                    workingSDP = testSDP; // Update working SDP
+                } catch (e) {
+                    output.textContent += '     ❌ Rejected: ' + e.message + '\n';
+                    
+                    // Try variations
+                    output.textContent += '\n     Trying variations:\n';
+                    
+                    // Try with LF instead of CRLF
+                    const testSDP2 = workingSDP + '\n' + candidates[i];
+                    try {
+                        await pc.setRemoteDescription({ type: 'offer', sdp: testSDP2 });
+                        output.textContent += '     ✅ Works with LF instead of CRLF\n';
+                    } catch (e2) {
+                        output.textContent += '     ❌ Still fails with LF\n';
+                    }
+                    
+                    // If it's the srflx candidate, try more variations
+                    if (candidates[i].includes('srflx')) {
+                        // Try without generation
+                        const noGen = candidates[i].replace(' generation 0', '');
+                        const testSDP3 = workingSDP + '\r\n' + noGen;
+                        try {
+                            await pc.setRemoteDescription({ type: 'offer', sdp: testSDP3 });
+                            output.textContent += '     ✅ Works without generation\n';
+                        } catch (e3) {
+                            output.textContent += '     ❌ Still fails without generation\n';
+                        }
+                        
+                        // Try with different priority
+                        const diffPrio = candidates[i].replace('1685855999', '1686052607');
+                        const testSDP4 = workingSDP + '\r\n' + diffPrio;
+                        try {
+                            await pc.setRemoteDescription({ type: 'offer', sdp: testSDP4 });
+                            output.textContent += '     ✅ Works with different priority\n';
+                        } catch (e4) {
+                            output.textContent += '     ❌ Still fails with different priority\n';
+                        }
+                    }
+                    
+                    output.textContent += '\n';
+                }
+            }
+            
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

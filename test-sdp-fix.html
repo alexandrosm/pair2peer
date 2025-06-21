@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SDP Fix Test</title>
+</head>
+<body>
+    <h1>Testing SDP Fix</h1>
+    <pre id="output"></pre>
+    
+    <script type="module">
+        import { expandSDP } from './sdp-compact.js';
+        
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // Test our expandSDP function
+            const testData = {
+                u: 'testufrag',
+                p: 'testpassword123456789012',
+                f: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                s: 'a',
+                c: []
+            };
+            
+            output.textContent = 'Testing expandSDP function:\n\n';
+            
+            const expandedSDP = expandSDP(testData);
+            output.textContent += 'Expanded SDP:\n' + expandedSDP + '\n\n';
+            
+            // Check line endings
+            output.textContent += `Has \\r\\n: ${expandedSDP.includes('\r\n')}\n`;
+            output.textContent += `Has \\n: ${expandedSDP.includes('\n')}\n`;
+            output.textContent += `Length: ${expandedSDP.length}\n\n`;
+            
+            // Try to set it
+            const pc = new RTCPeerConnection();
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: expandedSDP });
+                output.textContent += '✅ expandSDP output works!\n\n';
+                
+                // Now test with candidates
+                testData.c = ['h,192.168.1.100:50000,1'];
+                const sdpWithHost = expandSDP(testData);
+                
+                const pc2 = new RTCPeerConnection();
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: sdpWithHost });
+                    output.textContent += '✅ Works with host candidate!\n\n';
+                    
+                    // Test with srflx
+                    testData.c.push('s,24.17.60.171:60000,192.168.1.100:50000,1');
+                    const sdpWithSrflx = expandSDP(testData);
+                    
+                    const pc3 = new RTCPeerConnection();
+                    try {
+                        await pc3.setRemoteDescription({ type: 'offer', sdp: sdpWithSrflx });
+                        output.textContent += '✅ Works with srflx candidate!\n';
+                    } catch (e) {
+                        output.textContent += `❌ Failed with srflx: ${e.message}\n`;
+                        output.textContent += '\nSDP with srflx:\n' + sdpWithSrflx + '\n';
+                    }
+                    pc3.close();
+                } catch (e) {
+                    output.textContent += `❌ Failed with host: ${e.message}\n`;
+                }
+                pc2.close();
+            } catch (e) {
+                output.textContent += `❌ expandSDP failed: ${e.message}\n`;
+                output.textContent += '\nTrying to find the issue...\n';
+                
+                // Split and test line by line
+                const lines = expandedSDP.split('\r\n');
+                for (let i = 0; i < lines.length; i++) {
+                    output.textContent += `Line ${i}: "${lines[i]}" (length: ${lines[i].length})\n`;
+                }
+            }
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

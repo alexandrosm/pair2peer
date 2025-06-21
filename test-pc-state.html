@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PeerConnection State Test</title>
+</head>
+<body>
+    <h1>Testing PeerConnection State</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            output.textContent = 'Testing PeerConnection state and configuration:\n\n';
+            
+            // Test 1: Default PeerConnection
+            output.textContent += '1. Default PeerConnection:\n';
+            const pc1 = new RTCPeerConnection();
+            output.textContent += `  signalingState: ${pc1.signalingState}\n`;
+            output.textContent += `  iceConnectionState: ${pc1.iceConnectionState}\n`;
+            output.textContent += `  connectionState: ${pc1.connectionState}\n`;
+            
+            // Test 2: With configuration
+            output.textContent += '\n2. PeerConnection with config:\n';
+            const pc2 = new RTCPeerConnection({
+                iceServers: [],
+                iceCandidatePoolSize: 0
+            });
+            
+            // Test 3: Check if browser version matters
+            output.textContent += '\n3. Browser info:\n';
+            output.textContent += `  userAgent: ${navigator.userAgent}\n`;
+            
+            // Test 4: Try the exact same way the app uses it
+            output.textContent += '\n4. Testing app usage pattern:\n';
+            
+            // This is how processOffer works in the app
+            const testCompactData = {
+                t: 'o',
+                u: 'test',
+                p: 'testpassword123456789012',
+                f: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                s: 'a',
+                c: []
+            };
+            
+            // Manually expand like expandSDP does
+            const lines = [
+                'v=0',
+                `o=- ${Date.now()} 2 IN IP4 127.0.0.1`,
+                's=-',
+                't=0 0',
+                'a=group:BUNDLE 0',
+                'a=extmap-allow-mixed',
+                'a=msid-semantic: WMS',
+                'm=application 9 UDP/DTLS/SCTP webrtc-datachannel',
+                'c=IN IP4 0.0.0.0',
+                `a=ice-ufrag:${testCompactData.u}`,
+                `a=ice-pwd:${testCompactData.p}`,
+                'a=ice-options:trickle',
+                `a=fingerprint:sha-256 ${testCompactData.f}`,
+                `a=setup:actpass`,
+                'a=mid:0',
+                'a=sctp-port:5000'
+            ];
+            
+            const expandedSDP = lines.join('\r\n') + '\r\n';
+            
+            output.textContent += `Generated SDP (${expandedSDP.length} chars):\n`;
+            output.textContent += expandedSDP.substring(0, 200) + '...\n\n';
+            
+            // Try to set it
+            const pc3 = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            try {
+                await pc3.setRemoteDescription({
+                    type: 'offer',
+                    sdp: expandedSDP
+                });
+                output.textContent += '✅ App pattern SDP accepted!\n';
+            } catch (e) {
+                output.textContent += `❌ App pattern SDP rejected: ${e.message}\n`;
+                
+                // Try without trailing newline
+                const noTrailing = expandedSDP.trimEnd();
+                try {
+                    await pc3.setRemoteDescription({
+                        type: 'offer',
+                        sdp: noTrailing
+                    });
+                    output.textContent += '✅ Works without trailing newline!\n';
+                } catch (e2) {
+                    output.textContent += '❌ Still fails without trailing newline\n';
+                }
+            }
+            
+            pc1.close();
+            pc2.close();
+            pc3.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

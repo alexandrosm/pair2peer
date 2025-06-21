@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Remote SRFLX Requirements</title>
+</head>
+<body>
+    <h1>Testing Remote SRFLX Candidate Requirements</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // First create a real offer from one peer connection
+            output.textContent = '1. Creating real offer from PC1...\n';
+            
+            const pc1 = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            
+            // Wait for ICE gathering
+            await new Promise(resolve => {
+                if (pc1.iceGatheringState === 'complete') {
+                    resolve();
+                } else {
+                    pc1.onicecandidate = (e) => {
+                        if (!e.candidate) resolve();
+                    };
+                    setTimeout(resolve, 3000);
+                }
+            });
+            
+            const realOffer = pc1.localDescription.sdp;
+            output.textContent += 'Real offer created with candidates:\n';
+            const candidates = realOffer.split('\n').filter(l => l.includes('a=candidate'));
+            candidates.forEach(c => output.textContent += `  ${c}\n`);
+            
+            // Now test if PC2 can accept it
+            output.textContent += '\n2. Testing if PC2 can accept real offer...\n';
+            const pc2 = new RTCPeerConnection();
+            
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: realOffer });
+                output.textContent += '✅ PC2 accepted the real offer with all candidates\n';
+            } catch (e) {
+                output.textContent += '❌ PC2 rejected the real offer: ' + e.message + '\n';
+            }
+            
+            // Now test our reconstructed SDP
+            output.textContent += '\n3. Testing reconstructed SDP...\n';
+            
+            // Extract the srflx candidate from the real offer
+            const srflxLine = candidates.find(c => c.includes('typ srflx'));
+            if (srflxLine) {
+                output.textContent += `Found real srflx: ${srflxLine}\n`;
+                
+                // Create a minimal SDP with just this srflx
+                const testSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000
+${srflxLine}`;
+
+                const pc3 = new RTCPeerConnection();
+                try {
+                    await pc3.setRemoteDescription({ type: 'offer', sdp: testSDP });
+                    output.textContent += '✅ PC3 accepted reconstructed SDP with real srflx\n';
+                } catch (e) {
+                    output.textContent += '❌ PC3 rejected reconstructed SDP: ' + e.message + '\n';
+                    
+                    // Try modifying the srflx line
+                    output.textContent += '\n4. Trying modified srflx formats...\n';
+                    
+                    // Extract parts
+                    const parts = srflxLine.trim().split(' ');
+                    const foundation = parts[0].split(':')[1];
+                    const ip = parts[4];
+                    const port = parts[5];
+                    const raddr = parts[9];
+                    const rport = parts[11];
+                    
+                    // Test different formats
+                    const formats = [
+                        `a=candidate:1 1 udp 1685855999 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0`,
+                        `a=candidate:${foundation} 1 udp 1685855999 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0`,
+                        `a=candidate:1 1 udp 1686052607 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0`,
+                        srflxLine.trim() // Original exactly as is
+                    ];
+                    
+                    for (const fmt of formats) {
+                        const testSDP2 = testSDP.replace(srflxLine, fmt);
+                        try {
+                            const pc4 = new RTCPeerConnection();
+                            await pc4.setRemoteDescription({ type: 'offer', sdp: testSDP2 });
+                            output.textContent += `✅ Accepted: ${fmt}\n`;
+                            pc4.close();
+                        } catch (e) {
+                            output.textContent += `❌ Rejected: ${fmt}\n`;
+                        }
+                    }
+                }
+                pc3.close();
+            }
+            
+            pc1.close();
+            pc2.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

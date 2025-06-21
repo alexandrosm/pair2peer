@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Character-by-Character Comparison (Standalone)</title>
+</head>
+<body>
+    <h1>Character Comparison Test</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        // Manually create the expected srflx line based on the expansion logic
+        const foundation = 5;  // index + 1 where index = 4
+        const ip = '24.17.60.171';
+        const port = '64441';
+        const raddr = '192.168.1.7';
+        const rport = '64441';
+        
+        // This is what expandSDP would generate
+        const srflxLine = `a=candidate:${foundation} 1 udp 1685855999 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0`;
+        
+        output.textContent = `Generated SRFLX line:\n"${srflxLine}"\n\n`;
+        output.textContent += `Length: ${srflxLine.length} characters\n\n`;
+        
+        // Character analysis
+        output.textContent += 'Character-by-character breakdown:\n';
+        for (let i = 0; i < srflxLine.length; i++) {
+            const char = srflxLine[i];
+            const code = srflxLine.charCodeAt(i);
+            output.textContent += `[${i}] '${char}' (${code})${code === 32 ? ' <SPACE>' : ''}${code === 9 ? ' <TAB>' : ''}${code === 13 ? ' <CR>' : ''}${code === 10 ? ' <LF>' : ''}\n`;
+        }
+        
+        // Check for any non-printable characters
+        const nonPrintable = [];
+        for (let i = 0; i < srflxLine.length; i++) {
+            const code = srflxLine.charCodeAt(i);
+            if (code < 32 || code > 126) {
+                nonPrintable.push({pos: i, code: code});
+            }
+        }
+        
+        if (nonPrintable.length > 0) {
+            output.textContent += '\n⚠️ NON-PRINTABLE CHARACTERS FOUND:\n';
+            nonPrintable.forEach(({pos, code}) => {
+                output.textContent += `Position ${pos}: code ${code}\n`;
+            });
+        } else {
+            output.textContent += '\n✅ No non-printable characters found\n';
+        }
+        
+        // Test the line in an SDP
+        output.textContent += '\n\nTesting in browser...\n';
+        
+        async function testSDP() {
+            const baseSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            const fullSDP = baseSDP + '\r\n' + srflxLine;
+            
+            const pc = new RTCPeerConnection();
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: fullSDP });
+                output.textContent += '✅ Browser accepted the SDP\n';
+            } catch (e) {
+                output.textContent += '❌ Browser rejected: ' + e.message + '\n';
+                
+                // Try some variations
+                output.textContent += '\nTrying variations:\n';
+                
+                // Without trailing space
+                const trimmed = srflxLine.trim();
+                const sdp2 = baseSDP + '\r\n' + trimmed;
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: sdp2 });
+                    output.textContent += '✅ Works when trimmed\n';
+                } catch (e) {
+                    output.textContent += '❌ Still fails when trimmed\n';
+                }
+                
+                // With LF instead of CRLF
+                const sdp3 = baseSDP + '\n' + srflxLine;
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: sdp3 });
+                    output.textContent += '✅ Works with LF\n';
+                } catch (e) {
+                    output.textContent += '❌ Still fails with LF\n';
+                }
+            }
+            
+            pc.close();
+        }
+        
+        testSDP();
+    </script>
+</body>
+</html>

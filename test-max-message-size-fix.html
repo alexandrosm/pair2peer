@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Max Message Size Fix</title>
+</head>
+<body>
+    <h1>Testing SDP with max-message-size</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const pc = new RTCPeerConnection();
+            
+            // Test our SDP with max-message-size
+            output.textContent = 'Testing SDP with a=max-message-size:262144\n\n';
+            
+            const sdpWithMaxMsg = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000
+a=max-message-size:262144`;
+
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdpWithMaxMsg });
+                output.textContent += '✅ Base SDP accepted with max-message-size!\n\n';
+                
+                // Now test with candidates
+                output.textContent += 'Testing with host candidate:\n';
+                const withHost = sdpWithMaxMsg + '\r\na=candidate:1 1 udp 2122260223 192.168.1.100 50000 typ host generation 0';
+                
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: withHost });
+                    output.textContent += '✅ Host candidate accepted!\n\n';
+                    
+                    // Now test with srflx
+                    output.textContent += 'Testing with SRFLX candidate:\n';
+                    const withSrflx = withHost + '\r\na=candidate:2 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.100 rport 50000 generation 0';
+                    
+                    try {
+                        await pc.setRemoteDescription({ type: 'offer', sdp: withSrflx });
+                        output.textContent += '✅ SRFLX candidate accepted!\n\n';
+                        output.textContent += '🎉 SUCCESS! The max-message-size line fixed the issue!\n';
+                    } catch (e) {
+                        output.textContent += `❌ SRFLX still rejected: ${e.message}\n`;
+                    }
+                } catch (e) {
+                    output.textContent += `❌ Host candidate rejected: ${e.message}\n`;
+                }
+            } catch (e) {
+                output.textContent += `❌ Base SDP rejected: ${e.message}\n`;
+                
+                // Try without max-message-size to confirm it's the issue
+                output.textContent += '\nTesting without max-message-size for comparison:\n';
+                const sdpWithoutMaxMsg = sdpWithMaxMsg.replace('\na=max-message-size:262144', '');
+                
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: sdpWithoutMaxMsg });
+                    output.textContent += '✅ Works without max-message-size?!\n';
+                } catch (e2) {
+                    output.textContent += `❌ Confirmed: fails without max-message-size\n`;
+                }
+            }
+            
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

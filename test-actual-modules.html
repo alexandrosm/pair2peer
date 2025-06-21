@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Actual Modules</title>
+</head>
+<body>
+    <h1>Testing with Actual Imported Modules</h1>
+    <pre id="output"></pre>
+    
+    <script type="module">
+        import { expandSDP } from './sdp-compact.js';
+        
+        const output = document.getElementById('output');
+        
+        async function test() {
+            output.textContent = 'Testing expandSDP from imported module:\n\n';
+            
+            const testData = {
+                t: 'o',
+                u: 'test',
+                p: 'testpassword123456789012',
+                f: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                s: 'a',
+                c: []
+            };
+            
+            // Test 1: Without candidates
+            output.textContent += '1. Testing without candidates:\n';
+            const sdpNoCandidates = expandSDP(testData, 'offer');
+            output.textContent += `Generated SDP (${sdpNoCandidates.length} chars):\n${sdpNoCandidates}\n\n`;
+            
+            const pc1 = new RTCPeerConnection();
+            try {
+                await pc1.setRemoteDescription({ type: 'offer', sdp: sdpNoCandidates });
+                output.textContent += '✅ SDP without candidates accepted!\n\n';
+            } catch (e) {
+                output.textContent += `❌ Failed: ${e.message}\n\n`;
+                
+                // Debug the SDP
+                output.textContent += 'Debugging SDP:\n';
+                output.textContent += `First 50 chars: "${sdpNoCandidates.substring(0, 50)}"\n`;
+                output.textContent += `Last 50 chars: "${sdpNoCandidates.substring(sdpNoCandidates.length - 50)}"\n`;
+                output.textContent += `Contains \\r\\n: ${sdpNoCandidates.includes('\r\n')}\n`;
+                output.textContent += `Contains \\n: ${sdpNoCandidates.includes('\n')}\n`;
+            }
+            
+            // Test 2: With host candidate
+            output.textContent += '\n2. Testing with host candidate:\n';
+            testData.c = ['h,192.168.1.100:50000,1'];
+            const sdpWithHost = expandSDP(testData, 'offer');
+            
+            try {
+                await pc1.setRemoteDescription({ type: 'offer', sdp: sdpWithHost });
+                output.textContent += '✅ SDP with host candidate accepted!\n\n';
+            } catch (e) {
+                output.textContent += `❌ Failed: ${e.message}\n\n`;
+            }
+            
+            // Test 3: With srflx candidate
+            output.textContent += '3. Testing with srflx candidate:\n';
+            testData.c.push('s,24.17.60.171:50000,192.168.1.100:50000,1');
+            const sdpWithSrflx = expandSDP(testData, 'offer');
+            
+            try {
+                await pc1.setRemoteDescription({ type: 'offer', sdp: sdpWithSrflx });
+                output.textContent += '✅ SDP with srflx candidate accepted!\n\n';
+                output.textContent += '🎉 SUCCESS! The expandSDP function works correctly!\n';
+            } catch (e) {
+                output.textContent += `❌ Failed: ${e.message}\n\n`;
+                
+                // Show the srflx line
+                const srflxLine = sdpWithSrflx.split(/\r\n|\n/).find(l => l.includes('typ srflx'));
+                output.textContent += `SRFLX line: "${srflxLine}"\n`;
+            }
+            
+            pc1.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

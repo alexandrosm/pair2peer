@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blank Line Issue Test</title>
+</head>
+<body>
+    <h1>Testing Blank Line Issue</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // Get browser template
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            
+            const browserSDP = pc1.localDescription.sdp;
+            const lines = browserSDP.split(/\r\n/);
+            const templateLines = lines.filter(line => !line.startsWith('a=candidate:'));
+            const templateSDP = templateLines.join('\r\n');
+            
+            output.textContent = 'Checking template ending:\n';
+            output.textContent += `Template ends with: "${templateSDP.slice(-10)}" (last 10 chars)\n`;
+            output.textContent += `Last char code: ${templateSDP.charCodeAt(templateSDP.length - 1)}\n`;
+            output.textContent += `Second to last char code: ${templateSDP.charCodeAt(templateSDP.length - 2)}\n\n`;
+            
+            const pc2 = new RTCPeerConnection();
+            
+            // Test different ways of adding candidate
+            const candidate = 'a=candidate:1 1 udp 2122260223 192.168.1.7 50000 typ host generation 0';
+            
+            const tests = [
+                {
+                    name: 'Template + \\r\\n + candidate',
+                    sdp: templateSDP + '\r\n' + candidate
+                },
+                {
+                    name: 'Template + candidate (no separator)',
+                    sdp: templateSDP + candidate
+                },
+                {
+                    name: 'Template trimmed + \\r\\n + candidate',
+                    sdp: templateSDP.trimEnd() + '\r\n' + candidate
+                },
+                {
+                    name: 'Template (remove trailing newlines) + \\r\\n + candidate',
+                    sdp: templateSDP.replace(/[\r\n]+$/, '') + '\r\n' + candidate
+                },
+                {
+                    name: 'Join with proper lines array',
+                    sdp: (() => {
+                        const allLines = templateLines.filter(l => l.trim() !== '');
+                        allLines.push(candidate);
+                        return allLines.join('\r\n');
+                    })()
+                }
+            ];
+            
+            for (const test of tests) {
+                output.textContent += `\nTesting: ${test.name}\n`;
+                output.textContent += `SDP length: ${test.sdp.length}\n`;
+                output.textContent += `SDP ends with: "${test.sdp.slice(-20)}" (last 20 chars)\n`;
+                
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: test.sdp });
+                    output.textContent += '✅ ACCEPTED!\n';
+                    
+                    // If it works, test with srflx too
+                    const srflx = 'a=candidate:2 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.7 rport 50000 generation 0';
+                    const withSrflx = test.sdp + '\r\n' + srflx;
+                    
+                    try {
+                        await pc2.setRemoteDescription({ type: 'offer', sdp: withSrflx });
+                        output.textContent += '✅ SRFLX also works!\n';
+                    } catch (e) {
+                        output.textContent += '❌ SRFLX fails\n';
+                    }
+                    
+                    break; // Found working format
+                } catch (e) {
+                    output.textContent += `❌ Rejected: ${e.message}\n`;
+                }
+            }
+            
+            pc1.close();
+            pc2.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

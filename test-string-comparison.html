@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>String Comparison Test</title>
+</head>
+<body>
+    <h1>Comparing Working vs Failing SDP</h1>
+    <pre id="output"></pre>
+    
+    <script type="module">
+        import { expandSDP } from './sdp-compact.js';
+        
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const testData = {
+                t: 'o',
+                u: 'test',
+                p: 'testpassword123456789012',
+                f: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                s: 'a',
+                c: []
+            };
+            
+            // Get SDP from expandSDP
+            const expandedSDP = expandSDP(testData, 'offer');
+            
+            // Build the same SDP manually (this worked in pc-state test)
+            const lines = [
+                'v=0',
+                `o=- ${Date.now()} 2 IN IP4 127.0.0.1`,
+                's=-',
+                't=0 0',
+                'a=group:BUNDLE 0',
+                'a=extmap-allow-mixed',
+                'a=msid-semantic: WMS',
+                'm=application 9 UDP/DTLS/SCTP webrtc-datachannel',
+                'c=IN IP4 0.0.0.0',
+                `a=ice-ufrag:${testData.u}`,
+                `a=ice-pwd:${testData.p}`,
+                'a=ice-options:trickle',
+                `a=fingerprint:sha-256 ${testData.f}`,
+                `a=setup:actpass`,
+                'a=mid:0',
+                'a=sctp-port:5000'
+            ];
+            const manualSDP = lines.join('\r\n');
+            
+            output.textContent = 'Comparing SDPs:\n\n';
+            output.textContent += `expandSDP length: ${expandedSDP.length}\n`;
+            output.textContent += `Manual SDP length: ${manualSDP.length}\n\n`;
+            
+            // Character by character comparison
+            const maxLen = Math.max(expandedSDP.length, manualSDP.length);
+            let firstDiff = -1;
+            
+            for (let i = 0; i < maxLen; i++) {
+                const c1 = expandedSDP[i] || '<END>';
+                const c2 = manualSDP[i] || '<END>';
+                
+                if (c1 !== c2 && firstDiff === -1) {
+                    firstDiff = i;
+                    output.textContent += `First difference at position ${i}:\n`;
+                    output.textContent += `  expandSDP: '${c1}' (${c1 === '<END>' ? 'END' : expandedSDP.charCodeAt(i)})\n`;
+                    output.textContent += `  Manual:    '${c2}' (${c2 === '<END>' ? 'END' : manualSDP.charCodeAt(i)})\n\n`;
+                    
+                    // Show context
+                    output.textContent += 'Context:\n';
+                    const start = Math.max(0, i - 20);
+                    const end = Math.min(maxLen, i + 20);
+                    
+                    output.textContent += `  expandSDP: "${expandedSDP.substring(start, end)}"\n`;
+                    output.textContent += `  Manual:    "${manualSDP.substring(start, end)}"\n\n`;
+                }
+            }
+            
+            if (firstDiff === -1) {
+                output.textContent += 'SDPs are identical!\n\n';
+            }
+            
+            // Test both
+            const pc = new RTCPeerConnection();
+            
+            output.textContent += 'Testing manual SDP:\n';
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: manualSDP });
+                output.textContent += '✅ Manual SDP accepted\n\n';
+            } catch (e) {
+                output.textContent += `❌ Manual SDP failed: ${e.message}\n\n`;
+            }
+            
+            output.textContent += 'Testing expandSDP:\n';
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: expandedSDP });
+                output.textContent += '✅ expandSDP accepted\n\n';
+            } catch (e) {
+                output.textContent += `❌ expandSDP failed: ${e.message}\n\n`;
+                
+                // Try some modifications
+                output.textContent += 'Trying modifications:\n';
+                
+                // Try trimming
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: expandedSDP.trim() });
+                    output.textContent += '✅ Trimmed expandSDP works\n';
+                } catch (e) {
+                    output.textContent += '❌ Trimmed still fails\n';
+                }
+                
+                // Try replacing line endings
+                const normalized = expandedSDP.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: normalized });
+                    output.textContent += '✅ Normalized line endings work\n';
+                } catch (e) {
+                    output.textContent += '❌ Normalized still fails\n';
+                }
+            }
+            
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

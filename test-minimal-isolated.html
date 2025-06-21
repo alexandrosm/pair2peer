@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal Isolated Test</title>
+</head>
+<body>
+    <h1>Minimal Isolated Test</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        // Test 1: Simplest possible SDP
+        output.textContent = '1. Testing simplest SDP:\n';
+        const pc1 = new RTCPeerConnection();
+        
+        const simpleSDP = 'v=0\r\n' +
+            'o=- 1 2 IN IP4 127.0.0.1\r\n' +
+            's=-\r\n' +
+            't=0 0\r\n' +
+            'm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\n' +
+            'c=IN IP4 0.0.0.0';
+        
+        pc1.setRemoteDescription({ type: 'offer', sdp: simpleSDP })
+            .then(() => {
+                output.textContent += '✅ Simple SDP works\n\n';
+                
+                // Test 2: Add more attributes
+                output.textContent += '2. Adding attributes one by one:\n';
+                const pc2 = new RTCPeerConnection();
+                
+                const attributes = [
+                    'a=ice-ufrag:test',
+                    'a=ice-pwd:testpassword123456789012',
+                    'a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                    'a=setup:actpass',
+                    'a=mid:0',
+                    'a=sctp-port:5000'
+                ];
+                
+                let workingSDP = simpleSDP;
+                
+                function testNext(index) {
+                    if (index >= attributes.length) {
+                        output.textContent += '\n✅ All attributes work!\n';
+                        return;
+                    }
+                    
+                    const testSDP = workingSDP + '\r\n' + attributes[index];
+                    pc2.setRemoteDescription({ type: 'offer', sdp: testSDP })
+                        .then(() => {
+                            output.textContent += `✅ ${attributes[index]}\n`;
+                            workingSDP = testSDP;
+                            testNext(index + 1);
+                        })
+                        .catch(e => {
+                            output.textContent += `❌ ${attributes[index]} - ${e.message}\n`;
+                        });
+                }
+                
+                testNext(0);
+            })
+            .catch(e => {
+                output.textContent += `❌ Simple SDP failed: ${e.message}\n`;
+                
+                // Test with browser's offer
+                output.textContent += '\n3. Testing with browser offer:\n';
+                const pc3 = new RTCPeerConnection();
+                pc3.createDataChannel('test');
+                pc3.createOffer().then(offer => {
+                    const pc4 = new RTCPeerConnection();
+                    return pc4.setRemoteDescription(offer);
+                }).then(() => {
+                    output.textContent += '✅ Browser offer works\n';
+                }).catch(e => {
+                    output.textContent += `❌ Browser offer failed: ${e.message}\n`;
+                });
+            });
+    </script>
+</body>
+</html>

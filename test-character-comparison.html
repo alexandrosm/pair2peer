@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Character-by-Character Comparison</title>
+</head>
+<body>
+    <h1>Character Comparison Test</h1>
+    <pre id="output"></pre>
+    
+    <script type="module">
+        import { expandSDP } from './sdp-compact.js';
+        
+        const output = document.getElementById('output');
+        
+        // The compressed data from the error
+        const testData = {
+            t: 'o',
+            u: 'test',
+            p: 'testpassword123456789012',
+            f: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+            s: 'a',
+            c: ['s,24.17.60.171:64441,192.168.1.7:64441,4']
+        };
+        
+        const expanded = expandSDP(testData);
+        const lines = expanded.split(/\r\n|\r|\n/);
+        const srflxLine = lines.find(l => l.includes('typ srflx'));
+        
+        output.textContent = `Generated SRFLX line:\n"${srflxLine}"\n\n`;
+        output.textContent += `Length: ${srflxLine.length} characters\n\n`;
+        
+        // Character analysis
+        output.textContent += 'Character-by-character breakdown:\n';
+        for (let i = 0; i < srflxLine.length; i++) {
+            const char = srflxLine[i];
+            const code = srflxLine.charCodeAt(i);
+            output.textContent += `[${i}] '${char}' (${code})${code === 32 ? ' <SPACE>' : ''}${code === 9 ? ' <TAB>' : ''}\n`;
+        }
+        
+        // Expected format
+        const expected = 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0';
+        output.textContent += `\n\nExpected format:\n"${expected}"\n`;
+        output.textContent += `Length: ${expected.length} characters\n\n`;
+        
+        // Compare
+        if (srflxLine !== expected) {
+            output.textContent += 'DIFFERENCES:\n';
+            for (let i = 0; i < Math.max(srflxLine.length, expected.length); i++) {
+                if (srflxLine[i] !== expected[i]) {
+                    output.textContent += `Position ${i}: got '${srflxLine[i]}' (${srflxLine.charCodeAt(i)}), expected '${expected[i]}' (${expected.charCodeAt(i)})\n`;
+                }
+            }
+        } else {
+            output.textContent += 'Lines are identical!\n';
+        }
+        
+        // Test in browser
+        output.textContent += '\n\nTesting in browser...\n';
+        const pc = new RTCPeerConnection();
+        
+        try {
+            await pc.setRemoteDescription({ type: 'offer', sdp: expanded });
+            output.textContent += '✅ Browser accepted the SDP\n';
+        } catch (e) {
+            output.textContent += '❌ Browser rejected: ' + e.message + '\n';
+            
+            // Try trimming
+            const trimmedLine = srflxLine.trim();
+            const sdpWithTrimmed = expanded.replace(srflxLine, trimmedLine);
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdpWithTrimmed });
+                output.textContent += '✅ Works after trimming!\n';
+            } catch (e2) {
+                output.textContent += '❌ Still fails after trimming\n';
+            }
+        }
+        
+        pc.close();
+    </script>
+</body>
+</html>

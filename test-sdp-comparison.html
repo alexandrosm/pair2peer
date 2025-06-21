@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SDP Comparison Test</title>
+</head>
+<body>
+    <h1>Comparing Browser vs Our SDP</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // Get a working browser SDP
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            
+            const browserSDP = pc1.localDescription.sdp;
+            
+            // Our SDP (without candidates first)
+            const ourSDP = `v=0
+o=- 1750517220762 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            output.textContent = 'Browser SDP (no candidates):\n';
+            const browserLines = browserSDP.split('\n').filter(l => !l.includes('a=candidate:') && l.trim());
+            browserLines.forEach(l => output.textContent += l + '\n');
+            
+            output.textContent += '\n\nOur SDP:\n' + ourSDP + '\n\n';
+            
+            // Test browser SDP without candidates
+            const pc2 = new RTCPeerConnection();
+            const browserNoCandidate = browserLines.join('\r\n');
+            
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: browserNoCandidate });
+                output.textContent += '✅ Browser SDP (no candidates) works\n';
+            } catch (e) {
+                output.textContent += '❌ Browser SDP (no candidates) fails!\n';
+            }
+            
+            // Test our SDP
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: ourSDP });
+                output.textContent += '✅ Our SDP works\n';
+            } catch (e) {
+                output.textContent += `❌ Our SDP fails: ${e.message}\n\n`;
+                
+                // Find differences
+                output.textContent += 'Line-by-line comparison:\n';
+                const ourLines = ourSDP.split('\n');
+                
+                browserLines.forEach((bLine, i) => {
+                    const ourLine = ourLines[i] || '';
+                    if (bLine.trim() !== ourLine.trim()) {
+                        output.textContent += `Line ${i}:\n`;
+                        output.textContent += `  Browser: "${bLine}"\n`;
+                        output.textContent += `  Ours:    "${ourLine}"\n`;
+                    }
+                });
+                
+                // Check for extra lines
+                if (ourLines.length > browserLines.length) {
+                    output.textContent += '\nWe have extra lines:\n';
+                    for (let i = browserLines.length; i < ourLines.length; i++) {
+                        output.textContent += `  Line ${i}: "${ourLines[i]}"\n`;
+                    }
+                }
+                
+                // Try with exact browser structure
+                output.textContent += '\n\nTrying with exact browser attribute values:\n';
+                let testSDP = browserNoCandidate;
+                
+                // Replace specific values with ours
+                testSDP = testSDP.replace(/a=ice-ufrag:[^\r\n]+/, 'a=ice-ufrag:test');
+                testSDP = testSDP.replace(/a=ice-pwd:[^\r\n]+/, 'a=ice-pwd:testpassword123456789012');
+                testSDP = testSDP.replace(/a=fingerprint:[^\r\n]+/, 'a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF');
+                
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: testSDP });
+                    output.textContent += '✅ Modified browser SDP works\n';
+                    
+                    // Now add candidates
+                    const withHost = testSDP + '\r\na=candidate:1 1 udp 2122260223 192.168.1.7 50000 typ host generation 0';
+                    try {
+                        await pc2.setRemoteDescription({ type: 'offer', sdp: withHost });
+                        output.textContent += '✅ Host candidate works\n';
+                        
+                        const withSrflx = withHost + '\r\na=candidate:2 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.7 rport 50000 generation 0';
+                        try {
+                            await pc2.setRemoteDescription({ type: 'offer', sdp: withSrflx });
+                            output.textContent += '✅ SRFLX candidate works!\n';
+                        } catch (e) {
+                            output.textContent += '❌ SRFLX fails\n';
+                        }
+                    } catch (e) {
+                        output.textContent += '❌ Host fails\n';
+                    }
+                } catch (e) {
+                    output.textContent += '❌ Modified browser SDP fails\n';
+                }
+            }
+            
+            pc1.close();
+            pc2.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Browser Format Exact Test</title>
+</head>
+<body>
+    <h1>Testing Exact Browser Format</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // Get a browser offer
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const browserOffer = await pc1.createOffer();
+            
+            output.textContent = 'Browser offer SDP:\n' + browserOffer.sdp + '\n\n';
+            
+            // Test if we can set it
+            const pc2 = new RTCPeerConnection();
+            try {
+                await pc2.setRemoteDescription(browserOffer);
+                output.textContent += '✅ Browser offer works (as RTCSessionDescription)\n\n';
+            } catch (e) {
+                output.textContent += '❌ Browser offer failed\n\n';
+            }
+            
+            // Now test with the string
+            const pc3 = new RTCPeerConnection();
+            try {
+                await pc3.setRemoteDescription({ type: 'offer', sdp: browserOffer.sdp });
+                output.textContent += '✅ Browser SDP string works\n\n';
+            } catch (e) {
+                output.textContent += `❌ Browser SDP string failed: ${e.message}\n\n`;
+            }
+            
+            // Copy and modify the browser SDP
+            const lines = browserOffer.sdp.split('\n');
+            output.textContent += `Browser SDP has ${lines.length} lines\n`;
+            output.textContent += `Line endings: ${browserOffer.sdp.includes('\r\n') ? 'CRLF' : 'LF'}\n\n`;
+            
+            // Remove everything after media section to get minimal SDP
+            const minimalLines = [];
+            for (const line of lines) {
+                minimalLines.push(line);
+                if (line.startsWith('c=IN IP4')) {
+                    break;
+                }
+            }
+            
+            const minimalSDP = minimalLines.join('\n');
+            output.textContent += 'Minimal browser-based SDP:\n' + minimalSDP + '\n\n';
+            
+            const pc4 = new RTCPeerConnection();
+            try {
+                await pc4.setRemoteDescription({ type: 'offer', sdp: minimalSDP });
+                output.textContent += '✅ Minimal browser-based SDP works!\n';
+            } catch (e) {
+                output.textContent += `❌ Minimal browser-based SDP failed: ${e.message}\n`;
+            }
+            
+            // Check what's different about our construction
+            output.textContent += '\n\nTesting our construction:\n';
+            const ourSDP = `v=0
+o=- ${lines[1].split(' ')[1]} 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic:WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0`;
+            
+            const pc5 = new RTCPeerConnection();
+            try {
+                await pc5.setRemoteDescription({ type: 'offer', sdp: ourSDP });
+                output.textContent += '✅ Our construction works!\n';
+            } catch (e) {
+                output.textContent += `❌ Our construction failed: ${e.message}\n`;
+                
+                // Try with exact browser line endings
+                const ourSDPCRLF = ourSDP.replace(/\n/g, '\r\n');
+                try {
+                    await pc5.setRemoteDescription({ type: 'offer', sdp: ourSDPCRLF });
+                    output.textContent += '✅ Works with CRLF!\n';
+                } catch (e2) {
+                    output.textContent += '❌ Still fails with CRLF\n';
+                }
+            }
+            
+            pc1.close();
+            pc2.close();
+            pc3.close();
+            pc4.close();
+            pc5.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

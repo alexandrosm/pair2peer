@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Foundation Format Test</title>
+</head>
+<body>
+    <h1>Testing Foundation Format Requirements</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const baseSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            const pc = new RTCPeerConnection();
+            
+            // Test different foundation formats for srflx
+            const foundations = [
+                '5',                    // Simple number
+                '05',                   // Padded number
+                'srflx5',              // With prefix
+                '832894133',           // Browser-like large number
+                '5.0',                 // With decimal
+                '5e0',                 // Scientific notation
+                '+5',                  // With plus
+                ' 5',                  // With leading space
+                '5 ',                  // With trailing space
+                'a5',                  // Alphanumeric
+                '5a',                  // Alphanumeric reversed
+                ''                     // Empty (invalid)
+            ];
+            
+            output.textContent = 'Testing foundation formats for SRFLX candidates:\n\n';
+            
+            for (const found of foundations) {
+                const candidate = `a=candidate:${found} 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0`;
+                const sdp = baseSDP + '\r\n' + candidate;
+                
+                output.textContent += `Foundation: "${found}"\n`;
+                
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp });
+                    output.textContent += `✅ ACCEPTED\n\n`;
+                } catch (e) {
+                    output.textContent += `❌ REJECTED: ${e.message}\n\n`;
+                }
+            }
+            
+            // Also test if order matters
+            output.textContent += '\nTesting candidate order (srflx before/after host):\n\n';
+            
+            const sdp1 = baseSDP + '\r\n' + 
+                'a=candidate:1 1 udp 2122260223 192.168.1.7 50000 typ host generation 0\r\n' +
+                'a=candidate:2 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.7 rport 50000 generation 0';
+                
+            const sdp2 = baseSDP + '\r\n' + 
+                'a=candidate:1 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.7 rport 50000 generation 0\r\n' +
+                'a=candidate:2 1 udp 2122260223 192.168.1.7 50000 typ host generation 0';
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdp1 });
+                output.textContent += '✅ Host then SRFLX: ACCEPTED\n';
+            } catch (e) {
+                output.textContent += '❌ Host then SRFLX: REJECTED\n';
+            }
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdp2 });
+                output.textContent += '✅ SRFLX then Host: ACCEPTED\n';
+            } catch (e) {
+                output.textContent += '❌ SRFLX then Host: REJECTED\n';
+            }
+            
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

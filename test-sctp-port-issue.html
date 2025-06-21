@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SCTP Port Issue Test</title>
+</head>
+<body>
+    <h1>Testing SCTP Port Issue</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            output.textContent = 'Investigating a=sctp-port:5000 issue:\n\n';
+            
+            // Get browser SDP
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            
+            const browserSDP = offer.sdp;
+            const lines = browserSDP.split(/\r\n|\n/);
+            
+            // Find sctp-port line
+            const sctpIndex = lines.findIndex(line => line.includes('a=sctp-port:5000'));
+            output.textContent += `SCTP port at line ${sctpIndex}\n`;
+            output.textContent += `Lines around sctp-port:\n`;
+            
+            for (let i = Math.max(0, sctpIndex - 2); i <= Math.min(lines.length - 1, sctpIndex + 2); i++) {
+                output.textContent += `  [${i}] "${lines[i]}"\n`;
+            }
+            
+            const pc2 = new RTCPeerConnection();
+            
+            // Test our SDP with and without sctp-port
+            output.textContent += '\n\nTesting our SDP:\n';
+            
+            const ourLines = [
+                'v=0',
+                'o=- 1234567890 2 IN IP4 127.0.0.1',
+                's=-',
+                't=0 0',
+                'a=group:BUNDLE 0',
+                'a=extmap-allow-mixed',
+                'a=msid-semantic: WMS',
+                'm=application 9 UDP/DTLS/SCTP webrtc-datachannel',
+                'c=IN IP4 0.0.0.0',
+                'a=ice-ufrag:test',
+                'a=ice-pwd:test123456789012345678',
+                'a=ice-options:trickle',
+                'a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                'a=setup:actpass',
+                'a=mid:0'
+            ];
+            
+            // Test without sctp-port
+            output.textContent += '1. Without sctp-port:\n';
+            const withoutSctp = ourLines.join('\r\n');
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: withoutSctp });
+                output.textContent += '✅ Works without sctp-port\n';
+            } catch (e) {
+                output.textContent += `❌ Fails: ${e.message}\n`;
+            }
+            
+            // Test with sctp-port
+            output.textContent += '\n2. With sctp-port:\n';
+            ourLines.push('a=sctp-port:5000');
+            const withSctp = ourLines.join('\r\n');
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: withSctp });
+                output.textContent += '✅ Works with sctp-port\n';
+            } catch (e) {
+                output.textContent += `❌ Fails: ${e.message}\n`;
+            }
+            
+            // Test with max-message-size
+            output.textContent += '\n3. With sctp-port and max-message-size:\n';
+            ourLines.push('a=max-message-size:262144');
+            const withMax = ourLines.join('\r\n');
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: withMax });
+                output.textContent += '✅ Works with max-message-size\n';
+                
+                // Now try adding candidate
+                const withCandidate = withMax + '\r\na=candidate:1 1 udp 2122260223 192.168.1.100 50000 typ host generation 0';
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: withCandidate });
+                    output.textContent += '✅ Candidate works!\n';
+                } catch (e) {
+                    output.textContent += `❌ Candidate fails: ${e.message}\n`;
+                }
+                
+            } catch (e) {
+                output.textContent += `❌ Fails: ${e.message}\n`;
+            }
+            
+            // Test order - maybe sctp-port needs to come before mid?
+            output.textContent += '\n4. Testing different order:\n';
+            const reorderedLines = [
+                'v=0',
+                'o=- 1234567890 2 IN IP4 127.0.0.1',
+                's=-',
+                't=0 0',
+                'a=group:BUNDLE 0',
+                'a=extmap-allow-mixed',
+                'a=msid-semantic: WMS',
+                'm=application 9 UDP/DTLS/SCTP webrtc-datachannel',
+                'c=IN IP4 0.0.0.0',
+                'a=ice-ufrag:test',
+                'a=ice-pwd:test123456789012345678',
+                'a=ice-options:trickle',
+                'a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                'a=setup:actpass',
+                'a=sctp-port:5000',  // Before mid
+                'a=mid:0'
+            ];
+            
+            const reordered = reorderedLines.join('\r\n');
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: reordered });
+                output.textContent += '✅ Works with sctp-port before mid!\n';
+            } catch (e) {
+                output.textContent += `❌ Still fails: ${e.message}\n`;
+            }
+            
+            pc1.close();
+            pc2.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

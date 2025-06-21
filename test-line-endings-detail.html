@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Line Endings Detail Test</title>
+</head>
+<body>
+    <h1>Testing Line Ending Details</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // Get browser SDP
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            
+            const browserSDP = pc1.localDescription.sdp;
+            
+            // Analyze line endings
+            output.textContent = 'Analyzing browser SDP line endings:\n\n';
+            
+            // Check what line endings are used
+            const hasCRLF = browserSDP.includes('\r\n');
+            const hasCR = browserSDP.includes('\r');
+            const hasLF = browserSDP.includes('\n');
+            
+            output.textContent += `Contains CRLF (\\r\\n): ${hasCRLF}\n`;
+            output.textContent += `Contains CR (\\r): ${hasCR}\n`;
+            output.textContent += `Contains LF (\\n): ${hasLF}\n\n`;
+            
+            // Show hex of first few characters after a=sctp-port:5000
+            const sctpIndex = browserSDP.indexOf('a=sctp-port:5000');
+            if (sctpIndex !== -1) {
+                output.textContent += 'Characters after a=sctp-port:5000:\n';
+                for (let i = sctpIndex + 16; i < sctpIndex + 25 && i < browserSDP.length; i++) {
+                    const char = browserSDP[i];
+                    const code = browserSDP.charCodeAt(i);
+                    output.textContent += `[${i - sctpIndex - 16}] '${char === '\r' ? '\\r' : char === '\n' ? '\\n' : char}' (${code})\n`;
+                }
+            }
+            
+            // Test if the browser accepts its own SDP when re-parsed
+            const pc2 = new RTCPeerConnection();
+            output.textContent += '\n\nTesting if browser accepts its own SDP:\n';
+            
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: browserSDP });
+                output.textContent += '✅ Browser accepts its own SDP\n\n';
+                
+                // Now test without max-message-size
+                const withoutMaxMsg = browserSDP.replace(/a=max-message-size:262144[\r\n]*/g, '');
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: withoutMaxMsg });
+                    output.textContent += '✅ Works without max-message-size\n';
+                } catch (e) {
+                    output.textContent += '❌ Fails without max-message-size\n';
+                }
+                
+            } catch (e) {
+                output.textContent += `❌ Browser rejects its own SDP: ${e.message}\n`;
+            }
+            
+            // Test minimal valid SDP
+            output.textContent += '\n\nTesting minimal valid SDPs:\n';
+            
+            const minimalSDPs = [
+                {
+                    name: 'Minimal with LF',
+                    sdp: 'v=0\no=- 1 2 IN IP4 127.0.0.1\ns=-\nt=0 0\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\nc=IN IP4 0.0.0.0\na=mid:0\na=sctp-port:5000'
+                },
+                {
+                    name: 'Minimal with CRLF',
+                    sdp: 'v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\nc=IN IP4 0.0.0.0\r\na=mid:0\r\na=sctp-port:5000'
+                },
+                {
+                    name: 'With required attributes',
+                    sdp: 'v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\nc=IN IP4 0.0.0.0\r\na=ice-ufrag:test\r\na=ice-pwd:test123456789012345678\r\na=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF\r\na=setup:actpass\r\na=mid:0\r\na=sctp-port:5000'
+                }
+            ];
+            
+            for (const test of minimalSDPs) {
+                output.textContent += `\nTesting: ${test.name}\n`;
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: test.sdp });
+                    output.textContent += '✅ Accepted\n';
+                } catch (e) {
+                    output.textContent += `❌ Rejected: ${e.message}\n`;
+                }
+            }
+            
+            pc1.close();
+            pc2.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

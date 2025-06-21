@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SRFLX Dependency Test</title>
+</head>
+<body>
+    <h1>Testing SRFLX Host Dependency</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const baseSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            const pc = new RTCPeerConnection();
+            
+            output.textContent = 'Testing SRFLX with and without matching host candidate:\n\n';
+            
+            // Test 1: SRFLX alone
+            output.textContent += '1. SRFLX alone (no host):\n';
+            const sdp1 = baseSDP + '\r\n' + 
+                'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0';
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdp1 });
+                output.textContent += '✅ ACCEPTED\n\n';
+            } catch (e) {
+                output.textContent += `❌ REJECTED: ${e.message}\n\n`;
+            }
+            
+            // Test 2: SRFLX with matching host (same IP/port as raddr/rport)
+            output.textContent += '2. SRFLX with matching host candidate:\n';
+            const sdp2 = baseSDP + '\r\n' + 
+                'a=candidate:1 1 udp 2122260223 192.168.1.7 64441 typ host generation 0\r\n' +
+                'a=candidate:2 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0';
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdp2 });
+                output.textContent += '✅ ACCEPTED\n\n';
+            } catch (e) {
+                output.textContent += `❌ REJECTED: ${e.message}\n\n`;
+            }
+            
+            // Test 3: SRFLX with non-matching host
+            output.textContent += '3. SRFLX with non-matching host candidate:\n';
+            const sdp3 = baseSDP + '\r\n' + 
+                'a=candidate:1 1 udp 2122260223 192.168.1.7 50000 typ host generation 0\r\n' +
+                'a=candidate:2 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0';
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdp3 });
+                output.textContent += '✅ ACCEPTED\n\n';
+            } catch (e) {
+                output.textContent += `❌ REJECTED: ${e.message}\n\n`;
+            }
+            
+            // Test 4: Multiple hosts with SRFLX
+            output.textContent += '4. Multiple hosts with SRFLX (like real scenario):\n';
+            const sdp4 = baseSDP + '\r\n' + 
+                'a=candidate:1 1 udp 2122260223 169.254.199.180 61536 typ host generation 0\r\n' +
+                'a=candidate:2 1 udp 2122260223 172.27.80.1 61537 typ host generation 0\r\n' +
+                'a=candidate:3 1 udp 2122260223 172.27.192.1 61538 typ host generation 0\r\n' +
+                'a=candidate:4 1 udp 2122260223 192.168.1.7 64441 typ host generation 0\r\n' +
+                'a=candidate:5 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0';
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdp4 });
+                output.textContent += '✅ ACCEPTED\n\n';
+            } catch (e) {
+                output.textContent += `❌ REJECTED: ${e.message}\n\n`;
+            }
+            
+            // Test 5: Check if foundation numbers need to be unique
+            output.textContent += '5. Duplicate foundation numbers:\n';
+            const sdp5 = baseSDP + '\r\n' + 
+                'a=candidate:1 1 udp 2122260223 192.168.1.7 64441 typ host generation 0\r\n' +
+                'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0';
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdp5 });
+                output.textContent += '✅ ACCEPTED (duplicate foundations OK)\n\n';
+            } catch (e) {
+                output.textContent += `❌ REJECTED: ${e.message}\n\n`;
+            }
+            
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

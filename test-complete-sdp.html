@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Complete SDP</title>
+</head>
+<body>
+    <h1>Testing Complete SDP Structure</h1>
+    <pre id="output"></pre>
+    
+    <script type="module">
+        import { expandSDP } from './sdp-compact.js';
+        
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const pc = new RTCPeerConnection();
+            
+            // Test data matching your actual use case
+            const testData = {
+                t: 'o',
+                u: 'test',
+                p: 'testpassword123456789012',
+                f: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                s: 'a',
+                c: [
+                    'h,192.168.1.7:50000,4',
+                    's,24.17.60.171:50000,192.168.1.7:50000,4'
+                ]
+            };
+            
+            output.textContent = 'Testing expandSDP output with max-message-size fix:\n\n';
+            
+            const expandedSDP = expandSDP(testData, 'offer');
+            output.textContent += 'Expanded SDP:\n' + expandedSDP + '\n\n';
+            
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: expandedSDP });
+                output.textContent += '✅ SUCCESS! The SDP is now valid!\n\n';
+                
+                // Check which candidates were accepted
+                const candidates = expandedSDP.split('\n').filter(l => l.includes('a=candidate:'));
+                output.textContent += 'Accepted candidates:\n';
+                candidates.forEach(c => output.textContent += c + '\n');
+                
+            } catch (e) {
+                output.textContent += `❌ FAILED: ${e.message}\n\n`;
+                
+                // Find which line is causing the issue
+                const lines = expandedSDP.split(/\r\n|\r|\n/);
+                output.textContent += 'Debugging - trying to find problematic line:\n';
+                
+                // Test removing max-message-size
+                const withoutMaxMsg = lines.filter(l => !l.includes('max-message-size')).join('\r\n');
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: withoutMaxMsg });
+                    output.textContent += '✅ Works without max-message-size\n';
+                } catch (e) {
+                    output.textContent += '❌ Still fails without max-message-size\n';
+                    
+                    // Try removing candidates
+                    const withoutCandidates = lines.filter(l => !l.includes('a=candidate:')).join('\r\n');
+                    try {
+                        await pc.setRemoteDescription({ type: 'offer', sdp: withoutCandidates });
+                        output.textContent += '✅ Works without candidates\n';
+                    } catch (e) {
+                        output.textContent += '❌ Base structure is invalid\n';
+                    }
+                }
+            }
+            
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

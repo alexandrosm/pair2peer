@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal SRFLX Test</title>
+</head>
+<body>
+    <h1>Finding Minimal Working SRFLX</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const baseSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            output.textContent = 'Testing minimal SRFLX variations:\n\n';
+            
+            const tests = [
+                {
+                    name: 'Standard format (failing)',
+                    line: 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'With TCP instead of UDP',
+                    line: 'a=candidate:1 1 tcp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'With tcptype passive after generation',
+                    line: 'a=candidate:1 1 tcp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0 tcptype passive'
+                },
+                {
+                    name: 'Without generation',
+                    line: 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441'
+                },
+                {
+                    name: 'With ufrag after generation', 
+                    line: 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0 ufrag test'
+                },
+                {
+                    name: 'With network-id 4',
+                    line: 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0 network-id 4'
+                },
+                {
+                    name: 'With both network-id and network-cost',
+                    line: 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0 network-id 4 network-cost 10'
+                },
+                {
+                    name: 'Different priority (higher)',
+                    line: 'a=candidate:1 1 udp 2130706431 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'Different priority (lower)',
+                    line: 'a=candidate:1 1 udp 1677721599 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'Large foundation number',
+                    line: 'a=candidate:1518365040 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'With related address first',
+                    line: 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx generation 0 raddr 192.168.1.7 rport 64441'
+                },
+                {
+                    name: 'Component 2 instead of 1',
+                    line: 'a=candidate:1 2 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                }
+            ];
+            
+            const pc = new RTCPeerConnection();
+            let foundWorking = false;
+            
+            for (const test of tests) {
+                output.textContent += `Testing: ${test.name}\n`;
+                const sdp = baseSDP + '\r\n' + test.line;
+                
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp });
+                    output.textContent += `✅ ACCEPTED!\n`;
+                    output.textContent += `Working line: ${test.line}\n\n`;
+                    foundWorking = true;
+                } catch (e) {
+                    output.textContent += `❌ REJECTED\n\n`;
+                }
+            }
+            
+            if (!foundWorking) {
+                output.textContent += '\n⚠️ No working SRFLX format found!\n\n';
+                
+                // Try to get a real browser SRFLX
+                output.textContent += 'Getting real browser SRFLX for comparison...\n';
+                const pc2 = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                pc2.createDataChannel('test');
+                const offer = await pc2.createOffer();
+                await pc2.setLocalDescription(offer);
+                
+                let realSrflx = null;
+                pc2.onicecandidate = (e) => {
+                    if (e.candidate && e.candidate.type === 'srflx' && !realSrflx) {
+                        realSrflx = e.candidate.candidate;
+                        output.textContent += `\nReal browser SRFLX:\n${realSrflx}\n`;
+                        
+                        // Try this exact line
+                        const testSdp = baseSDP + '\r\n' + realSrflx;
+                        pc.setRemoteDescription({ type: 'offer', sdp: testSdp })
+                            .then(() => {
+                                output.textContent += '✅ Browser accepts its own SRFLX format!\n';
+                            })
+                            .catch(() => {
+                                output.textContent += '❌ Browser rejects even its own SRFLX!\n';
+                            });
+                    }
+                };
+                
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                pc2.close();
+            }
+            
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Console Check Test</title>
+</head>
+<body>
+    <h1>Check Browser Console for Errors</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        output.textContent = 'Testing basic SDP parsing...\n\n';
+        
+        // Log any errors
+        window.addEventListener('error', (e) => {
+            output.textContent += `Global error: ${e.message}\n`;
+        });
+        
+        // Test in try-catch
+        try {
+            const pc = new RTCPeerConnection();
+            const sdp = 'v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\nc=IN IP4 0.0.0.0';
+            
+            output.textContent += `SDP to test:\n${sdp}\n\n`;
+            output.textContent += `SDP length: ${sdp.length}\n`;
+            output.textContent += `First char: '${sdp[0]}' (${sdp.charCodeAt(0)})\n\n`;
+            
+            pc.setRemoteDescription({ type: 'offer', sdp: sdp })
+                .then(() => {
+                    output.textContent += '✅ SUCCESS!\n';
+                    output.textContent += 'Check browser console for any warnings.\n';
+                })
+                .catch(e => {
+                    output.textContent += `❌ Failed: ${e.message}\n`;
+                    output.textContent += `Error type: ${e.constructor.name}\n`;
+                    output.textContent += `Error stack:\n${e.stack}\n`;
+                    output.textContent += '\nCheck browser console for more details.\n';
+                });
+                
+        } catch (e) {
+            output.textContent += `Caught error: ${e.message}\n`;
+        }
+        
+        // Also check if it's a browser compatibility issue
+        output.textContent += `\n\nBrowser info:\n`;
+        output.textContent += `User Agent: ${navigator.userAgent}\n`;
+        output.textContent += `Chrome version: ${navigator.userAgent.match(/Chrome\/(\d+)/)?.[1] || 'Not Chrome'}\n`;
+    </script>
+</body>
+</html>

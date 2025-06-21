@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Exact Browser Order</title>
+</head>
+<body>
+    <h1>Testing Exact Browser SDP Order</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // Get browser SDP
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            
+            const browserSDP = pc1.localDescription.sdp;
+            output.textContent = 'Browser SDP:\n' + browserSDP + '\n\n';
+            
+            // Extract lines in order
+            const lines = browserSDP.split(/\r\n|\r|\n/);
+            
+            // Build SDP step by step
+            const pc2 = new RTCPeerConnection();
+            let workingSDP = '';
+            let lastWorkingSDP = '';
+            
+            output.textContent += 'Building SDP line by line:\n\n';
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (!line.trim() || line.includes('a=candidate:')) continue;
+                
+                workingSDP = lastWorkingSDP + (lastWorkingSDP ? '\r\n' : '') + line;
+                
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: workingSDP });
+                    output.textContent += `✅ Line ${i}: ${line}\n`;
+                    lastWorkingSDP = workingSDP;
+                } catch (e) {
+                    output.textContent += `❌ Line ${i}: ${line}\n`;
+                    output.textContent += `   Error: ${e.message}\n`;
+                    
+                    // Try skipping this line
+                    workingSDP = lastWorkingSDP;
+                }
+            }
+            
+            output.textContent += '\n\nFinal working SDP:\n' + lastWorkingSDP + '\n\n';
+            
+            // Now test adding candidates
+            output.textContent += 'Testing candidates with working SDP:\n';
+            
+            const hostCandidate = 'a=candidate:1 1 udp 2122260223 192.168.1.100 50000 typ host generation 0';
+            const srflxCandidate = 'a=candidate:2 1 udp 1685855999 24.17.60.171 50000 typ srflx raddr 192.168.1.100 rport 50000 generation 0';
+            
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: lastWorkingSDP + '\r\n' + hostCandidate });
+                output.textContent += '✅ Host candidate works\n';
+                
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: lastWorkingSDP + '\r\n' + hostCandidate + '\r\n' + srflxCandidate });
+                    output.textContent += '✅ SRFLX candidate works!\n';
+                } catch (e) {
+                    output.textContent += '❌ SRFLX candidate fails\n';
+                }
+            } catch (e) {
+                output.textContent += '❌ Host candidate fails\n';
+            }
+            
+            pc1.close();
+            pc2.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

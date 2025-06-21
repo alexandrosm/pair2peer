@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Candidate Format Detail Test</title>
+</head>
+<body>
+    <h1>Testing Candidate Format Details</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // Get browser's actual candidate format
+            const pc1 = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            
+            // Wait for candidates
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            const browserSDP = pc1.localDescription.sdp;
+            const candidateLines = browserSDP.split(/\r\n/).filter(line => line.startsWith('a=candidate:'));
+            
+            output.textContent = 'Browser candidate lines:\n';
+            candidateLines.forEach((line, i) => {
+                output.textContent += `${i+1}. "${line}"\n`;
+                output.textContent += `   Length: ${line.length}\n`;
+                output.textContent += `   Starts with: ${line.substring(0, 20)}\n`;
+                output.textContent += `   Ends with: ${line.substring(line.length - 20)}\n\n`;
+            });
+            
+            if (candidateLines.length > 0) {
+                // Take first browser candidate and test it
+                const browserCandidate = candidateLines[0];
+                const templateSDP = browserSDP.split(/\r\n/)
+                    .filter(line => !line.startsWith('a=candidate:'))
+                    .filter(line => line.trim() !== '')
+                    .join('\r\n');
+                
+                output.textContent += 'Testing with browser\'s own candidate:\n';
+                const pc2 = new RTCPeerConnection();
+                
+                const testSDP = templateSDP + '\r\n' + browserCandidate;
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: testSDP });
+                    output.textContent += '✅ Browser\'s own candidate format works!\n\n';
+                    
+                    // Now analyze what's different
+                    output.textContent += 'Analyzing browser candidate format:\n';
+                    const parts = browserCandidate.split(' ');
+                    parts.forEach((part, i) => {
+                        output.textContent += `Part ${i}: "${part}"\n`;
+                    });
+                    
+                } catch (e) {
+                    output.textContent += `❌ Even browser's candidate fails: ${e.message}\n`;
+                }
+                
+                pc2.close();
+            }
+            
+            // Test if it's a parsing state issue
+            output.textContent += '\n\nTesting parsing state:\n';
+            
+            // Create a new peer connection and test step by step
+            const pc3 = new RTCPeerConnection();
+            const pc4 = new RTCPeerConnection();
+            
+            // Create an offer on pc3
+            pc3.createDataChannel('test');
+            const offer3 = await pc3.createOffer();
+            await pc3.setLocalDescription(offer3);
+            
+            // Set it as remote on pc4
+            try {
+                await pc4.setRemoteDescription(offer3);
+                output.textContent += '✅ PC4 accepts PC3\'s offer\n';
+                
+                // Create answer
+                const answer = await pc4.createAnswer();
+                await pc4.setLocalDescription(answer);
+                
+                // Set answer on pc3
+                await pc3.setRemoteDescription(answer);
+                output.textContent += '✅ Full offer/answer exchange works\n';
+                
+            } catch (e) {
+                output.textContent += `❌ Offer/answer fails: ${e.message}\n`;
+            }
+            
+            pc1.close();
+            pc3.close();
+            pc4.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

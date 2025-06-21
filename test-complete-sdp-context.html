@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Complete SDP Context Test</title>
+</head>
+<body>
+    <h1>Testing SRFLX with Complete SDP Context</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // First, get a real browser SDP as template
+            output.textContent = 'Getting browser SDP template...\n';
+            
+            const pc1 = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            
+            // Wait for ICE
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const browserSDP = pc1.localDescription.sdp;
+            output.textContent += 'Browser SDP obtained.\n\n';
+            
+            // Extract all lines except candidates
+            const nonCandidateLines = browserSDP.split('\n').filter(line => 
+                !line.includes('a=candidate:') && line.trim() !== ''
+            );
+            
+            output.textContent += 'Testing different SRFLX formats with browser SDP context:\n\n';
+            
+            const tests = [
+                {
+                    name: 'Browser srflx format',
+                    line: 'a=candidate:798566958 1 udp 1677729535 24.17.60.171 57644 typ srflx raddr 0.0.0.0 rport 0 generation 0 network-cost 999'
+                },
+                {
+                    name: 'Our srflx format',
+                    line: 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0'
+                },
+                {
+                    name: 'Modified browser format without network-cost',
+                    line: 'a=candidate:798566958 1 udp 1677729535 24.17.60.171 57644 typ srflx raddr 0.0.0.0 rport 0 generation 0'
+                }
+            ];
+            
+            const pc2 = new RTCPeerConnection();
+            
+            for (const test of tests) {
+                output.textContent += `Testing: ${test.name}\n`;
+                
+                // Build SDP with browser context but our candidate
+                const testSDP = nonCandidateLines.join('\n') + '\n' + test.line;
+                
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: testSDP });
+                    output.textContent += `✅ ACCEPTED!\n\n`;
+                } catch (e) {
+                    output.textContent += `❌ REJECTED\n\n`;
+                }
+            }
+            
+            // Now test line endings
+            output.textContent += '\nTesting line endings:\n\n';
+            
+            const srflxLine = 'a=candidate:1 1 udp 1685855999 24.17.60.171 64441 typ srflx raddr 192.168.1.7 rport 64441 generation 0';
+            
+            // Get browser SDP line ending style
+            const hasCRLF = browserSDP.includes('\r\n');
+            const hasLF = browserSDP.includes('\n');
+            output.textContent += `Browser SDP uses: ${hasCRLF ? 'CRLF (\\r\\n)' : hasLF ? 'LF (\\n)' : 'Unknown'}\n\n`;
+            
+            // Test with different line endings
+            const endings = [
+                { name: 'LF (\\n)', sep: '\n' },
+                { name: 'CRLF (\\r\\n)', sep: '\r\n' },
+                { name: 'CR (\\r)', sep: '\r' }
+            ];
+            
+            for (const ending of endings) {
+                output.textContent += `Testing with ${ending.name}:\n`;
+                const testSDP = nonCandidateLines.join(ending.sep) + ending.sep + srflxLine;
+                
+                try {
+                    await pc2.setRemoteDescription({ type: 'offer', sdp: testSDP });
+                    output.textContent += `✅ ACCEPTED!\n\n`;
+                } catch (e) {
+                    output.textContent += `❌ REJECTED\n\n`;
+                }
+            }
+            
+            pc1.close();
+            pc2.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>
