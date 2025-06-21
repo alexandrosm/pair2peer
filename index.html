@@ -500,6 +500,9 @@
                     }
                 });
                 
+                // Log the actual SDP before compacting
+                console.log('Device 2 answer SDP:', state.pc.localDescription.sdp);
+                
                 // Create ultra-compact answer data
                 const answerData = {
                     t: 'a', // type: answer

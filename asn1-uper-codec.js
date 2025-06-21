@@ -293,6 +293,13 @@ export function decodeWebRTCData(bytes) {
         const type = typeMap[typeBits];
         console.log(`ASN.1 decoder: Candidate ${i+1} - type bits: ${typeBits}, type: ${type}`);
         
+        if (!type) {
+            console.error(`ASN.1 decoder: Invalid candidate type bits: ${typeBits}`);
+            console.error(`Bit position: ${decoder.bitPos}, remaining bits: ${bitsLeft}`);
+            // Skip this candidate and try to recover
+            break;
+        }
+        
         if (type === 'h') {
             const ip = decoder.readIP();
             const port = decoder.readPort();
