@@ -111,9 +111,11 @@
         // Import functions from modules with dynamic version
         const sdpModule = await import(`./sdp-compact.js?v=${CACHE_VERSION}`);
         const asn1Module = await import(`./asn1-uper-codec.js?v=${CACHE_VERSION}`);
+        const crcModule = await import(`./crc.js?v=${CACHE_VERSION}`);
         
         const { compactSDP, expandSDP } = sdpModule;
         const { encodeWebRTCData, decodeWebRTCData } = asn1Module;
+        const { addCRC, verifyCRC } = crcModule;
         
         console.log(`%cPair2Peer v${VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
@@ -141,11 +143,15 @@
             const binary = encodeWebRTCData(obj);
             console.log('ASN.1 UPER encoded to', binary.length, 'bytes');
             
+            // Add CRC for error detection
+            const binaryWithCRC = addCRC(binary);
+            console.log('Added CRC, total size:', binaryWithCRC.length, 'bytes');
+            
             // Convert binary to string for QR code
             // Using Latin-1 encoding to preserve all byte values
             let binaryStr = '';
-            for (let i = 0; i < binary.length; i++) {
-                binaryStr += String.fromCharCode(binary[i]);
+            for (let i = 0; i < binaryWithCRC.length; i++) {
+                binaryStr += String.fromCharCode(binaryWithCRC[i]);
             }
             return btoa(binaryStr); // Base64 for safe transport
         }
@@ -156,11 +162,23 @@
                 
                 // Decode from Base64
                 const binaryStr = atob(str);
-                const bytes = new Uint8Array(binaryStr.length);
+                const bytesWithCRC = new Uint8Array(binaryStr.length);
                 for (let i = 0; i < binaryStr.length; i++) {
-                    bytes[i] = binaryStr.charCodeAt(i);
+                    bytesWithCRC[i] = binaryStr.charCodeAt(i);
                 }
-                console.log('Decoded to', bytes.length, 'bytes');
+                console.log('Decoded to', bytesWithCRC.length, 'bytes (including CRC)');
+                
+                // Verify CRC
+                const crcResult = verifyCRC(bytesWithCRC);
+                if (!crcResult.valid) {
+                    console.error('❌ CRC check failed! Data is corrupted');
+                    updateStatus('QR code corrupted! Please try again', 'error');
+                    return null;
+                }
+                console.log('✅ CRC check passed');
+                
+                const bytes = crcResult.data;
+                console.log('Data size after CRC removal:', bytes.length, 'bytes');
                 console.log('First 10 bytes:', Array.from(bytes.slice(0, 10)));
                 
                 // Decode ASN.1 UPER format
