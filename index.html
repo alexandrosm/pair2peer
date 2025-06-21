@@ -742,25 +742,9 @@
             showStep('show');
             updateStatus(title);
             
-            // Auto-advance for Device 1: show split view
+            // Store QR data for split view if needed
             if (state.role === 'device1' && title.includes('Step 1')) {
-                // Copy QR to split view
-                setTimeout(() => {
-                    const qrDiv = document.getElementById('qr-display-split');
-                    qrDiv.innerHTML = '';
-                    new QRCode(qrDiv, {
-                        text: data,
-                        width: 240,
-                        height: 240,
-                        correctLevel: QRCode.CorrectLevel.L
-                    });
-                    
-                    // Show split view and start camera
-                    state.scanTarget = 'answer';
-                    showStep('device1-split');
-                    startScannerSplit();
-                    updateStatus('Show QR to Device 2 & scan their response');
-                }, 100);
+                state.lastQRData = data;
             }
         }
 
@@ -972,10 +956,22 @@
         
         document.getElementById('next-btn').addEventListener('click', () => {
             if (state.role === 'device1') {
+                // Show split view with QR and camera
+                if (state.lastQRData) {
+                    const qrDiv = document.getElementById('qr-display-split');
+                    qrDiv.innerHTML = '';
+                    new QRCode(qrDiv, {
+                        text: state.lastQRData,
+                        width: 240,
+                        height: 240,
+                        correctLevel: QRCode.CorrectLevel.L
+                    });
+                }
+                
                 state.scanTarget = 'answer';
-                document.getElementById('scan-title').textContent = 'Scan answer from Device 2:';
-                showStep('scan');
-                startScanner();
+                showStep('device1-split');
+                startScannerSplit();
+                updateStatus('Show QR to Device 2 & scan their response');
             } else {
                 showStep('connected');
             }
