@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.1.8</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.1.9</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -107,7 +107,7 @@
         import { encodeWebRTCData, decodeWebRTCData } from './asn1-uper-codec.js?v=1.1.3';
         
         // Version info
-        const APP_VERSION = '1.1.8';
+        const APP_VERSION = '1.1.9';
         const BUILD_DATE = new Date().toISOString();
         const GIT_COMMIT = '8952b89'; // Will be updated by CI/CD
         
@@ -665,8 +665,18 @@
                     const simulatedScan = state.preGeneratedQR;
                     console.log('Simulating QR scan of:', simulatedScan.substring(0, 50) + '...');
                     
+                    // Log the binary data
+                    const binaryStr = atob(simulatedScan);
+                    const bytes = new Uint8Array(binaryStr.length);
+                    for (let i = 0; i < binaryStr.length; i++) {
+                        bytes[i] = binaryStr.charCodeAt(i);
+                    }
+                    console.log('Binary data length:', bytes.length, 'bytes');
+                    console.log('Binary hex:', Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                    
                     const decoded = decompressData(simulatedScan);
                     console.log('Decoded result:', decoded);
+                    console.log('Decoded candidates count:', decoded?.c?.length);
                     
                     if (!decoded) {
                         console.error('❌ REAL DATA TEST FAILED: Decompression returned null');

@@ -188,7 +188,9 @@ export function encodeWebRTCData(data) {
     // Number of candidates (constrained to 0-10)
     const candidates = data.c || [];
     console.log('ASN.1 encoder: Writing', candidates.length, 'candidates');
+    console.log('ASN.1 encoder: Bit position before candidates count:', encoder.bits.length);
     encoder.writeConstrainedInt(candidates.length, 0, 10);
+    console.log('ASN.1 encoder: Bit position after candidates count:', encoder.bits.length);
     
     // Encode each candidate
     candidates.forEach((cand, idx) => {
@@ -243,8 +245,19 @@ export function decodeWebRTCData(bytes) {
     }
     
     // Candidates
+    console.log('ASN.1 decoder: About to read number of candidates, bitPos:', decoder.bitPos);
     const numCandidates = decoder.readConstrainedInt(0, 10);
-    console.log('ASN.1 decoder: Reading', numCandidates, 'candidates');
+    console.log('ASN.1 decoder: Reading', numCandidates, 'candidates (should be 5 or less)');
+    if (numCandidates > 8) {
+        console.error('WARNING: Suspicious number of candidates:', numCandidates);
+        // Log the next few bytes to debug
+        const debugBytes = [];
+        const startPos = Math.floor(decoder.bitPos / 8) - 2;
+        for (let i = Math.max(0, startPos); i < Math.min(bytes.length, startPos + 6); i++) {
+            debugBytes.push(bytes[i].toString(16).padStart(2, '0'));
+        }
+        console.log('Bytes around candidate count:', debugBytes.join(' '));
+    }
     const candidates = [];
     
     for (let i = 0; i < numCandidates; i++) {
