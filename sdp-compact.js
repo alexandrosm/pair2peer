@@ -6,17 +6,18 @@ export function compactSDP(sdp) {
     const candidates = [];
     
     lines.forEach(line => {
+        line = line.trim(); // Remove any whitespace/newlines
         if (line.includes('a=ice-ufrag:')) {
-            ufrag = line.split('a=ice-ufrag:')[1];
+            ufrag = line.split('a=ice-ufrag:')[1].trim();
         }
         else if (line.includes('a=ice-pwd:')) {
-            pwd = line.split('a=ice-pwd:')[1];
+            pwd = line.split('a=ice-pwd:')[1].trim();
         }
         else if (line.includes('a=fingerprint:')) {
-            fingerprint = line.split(' ')[1]; // Just the hex part
+            fingerprint = line.split(' ')[1].trim(); // Just the hex part
         }
         else if (line.includes('a=setup:')) {
-            setup = line.split('a=setup:')[1][0]; // First letter only
+            setup = line.split('a=setup:')[1].trim()[0]; // First letter only
         }
         else if (line.includes('a=candidate:')) {
             const parts = line.split(' ');

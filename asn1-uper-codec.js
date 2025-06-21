@@ -22,8 +22,13 @@ export class UPEREncoder {
         if (length < 128) {
             this.writeBits(0, 1); // short form
             this.writeBits(length, 7);
+        } else if (length < 16384) {
+            // long form (up to 16K)
+            this.writeBits(1, 1); // long form flag
+            this.writeBits(0, 1); // not fragmented
+            this.writeBits(length, 14); // 14 bits for length
         } else {
-            throw new Error('Length too large for short form');
+            throw new Error('Length too large');
         }
     }
 
@@ -105,8 +110,14 @@ export class UPERDecoder {
         const isShort = this.readBits(1) === 0;
         if (isShort) {
             return this.readBits(7);
+        } else {
+            // long form
+            const isFragmented = this.readBits(1) === 1;
+            if (isFragmented) {
+                throw new Error('Fragmented form not implemented');
+            }
+            return this.readBits(14); // 14 bits for length
         }
-        throw new Error('Long form not implemented');
     }
 
     readOctetString() {
