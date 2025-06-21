@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.3</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.4</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -94,14 +94,14 @@
 
     <script type="module">
         // Import functions from modules
-        import { base45Encode, base45Decode } from './base45-lib.js?v=1.0.3';
-        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.0.3';
-        import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.0.3';
+        import { base45Encode, base45Decode } from './base45-lib.js?v=1.0.4';
+        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.0.4';
+        import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.0.4';
         
         // Version info
-        const APP_VERSION = '1.0.3';
+        const APP_VERSION = '1.0.4';
         const BUILD_DATE = new Date().toISOString();
-        const GIT_COMMIT = '9598eb0'; // Will be updated by CI/CD
+        const GIT_COMMIT = 'b29c323'; // Will be updated by CI/CD
         
         console.log(`%cPair2Peer v${APP_VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
@@ -135,13 +135,21 @@
 
         function decompressData(str) {
             try {
+                console.log('Decompressing string:', str.substring(0, 50) + '...');
+                
                 // 1. Decode from Base45
                 const bytes = base45Decode(str);
+                console.log('Base45 decoded to', bytes.length, 'bytes');
+                console.log('First 10 bytes:', Array.from(bytes.slice(0, 10)));
                 
                 // 2. Decode binary format
-                return decodeBinary(bytes);
+                const decoded = decodeBinary(bytes);
+                console.log('Binary decoded:', decoded);
+                
+                return decoded;
             } catch (error) {
                 console.error('Decompression error:', error);
+                console.error('Error stack:', error.stack);
                 return null;
             }
         }
@@ -237,6 +245,8 @@
                 
                 // Compress and show
                 const compressed = compressData(offerData);
+                console.log('Compressed offer:', compressed);
+                console.log('Compressed length:', compressed.length);
                 showQR(compressed, 'Step 1: Show to Device 2');
                 
             } catch (error) {
@@ -246,9 +256,18 @@
 
         async function processOffer(compressedData) {
             try {
+                console.log('Processing compressed data:', compressedData);
+                console.log('Compressed data length:', compressedData.length);
+                
                 const data = decompressData(compressedData);
                 console.log('Decompressed offer data:', data);
-                if (!data || data.t !== 'o') throw new Error('Invalid offer');
+                
+                if (!data) {
+                    throw new Error('Decompression failed - returned null');
+                }
+                if (data.t !== 'o') {
+                    throw new Error(`Invalid offer type: expected 'o', got '${data.t}'`);
+                }
                 
                 updateStatus('Processing offer...');
                 state.role = 'device2';
