@@ -15,6 +15,7 @@ export class UPEREncoder {
     writeConstrainedInt(value, min, max) {
         const range = max - min + 1;
         const bitsNeeded = Math.ceil(Math.log2(range));
+        console.log(`writeConstrainedInt: value=${value}, min=${min}, max=${max}, range=${range}, bits=${bitsNeeded}`);
         this.writeBits(value - min, bitsNeeded);
     }
 
@@ -103,7 +104,9 @@ export class UPERDecoder {
     readConstrainedInt(min, max) {
         const range = max - min + 1;
         const bitsNeeded = Math.ceil(Math.log2(range));
-        return this.readBits(bitsNeeded) + min;
+        const value = this.readBits(bitsNeeded) + min;
+        console.log(`readConstrainedInt: min=${min}, max=${max}, range=${range}, bits=${bitsNeeded}, value=${value}`);
+        return value;
     }
 
     readLengthDeterminant() {
@@ -184,10 +187,12 @@ export function encodeWebRTCData(data) {
     
     // Number of candidates (constrained to 0-10)
     const candidates = data.c || [];
+    console.log('ASN.1 encoder: Writing', candidates.length, 'candidates');
     encoder.writeConstrainedInt(candidates.length, 0, 10);
     
     // Encode each candidate
-    candidates.forEach(cand => {
+    candidates.forEach((cand, idx) => {
+        console.log(`ASN.1 encoder: Candidate ${idx+1}: ${cand}`);
         const parts = cand.split(',');
         const type = parts[0];
         
@@ -239,12 +244,23 @@ export function decodeWebRTCData(bytes) {
     
     // Candidates
     const numCandidates = decoder.readConstrainedInt(0, 10);
+    console.log('ASN.1 decoder: Reading', numCandidates, 'candidates');
     const candidates = [];
     
     for (let i = 0; i < numCandidates; i++) {
+        // Check if we have enough bits left
+        const bitsLeft = (decoder.bytes.length * 8) - decoder.bitPos;
+        console.log(`ASN.1 decoder: Candidate ${i+1} - bits left: ${bitsLeft}, bit pos: ${decoder.bitPos}`);
+        
+        if (bitsLeft < 2) {
+            console.error('ASN.1 decoder: Not enough bits for candidate type!');
+            break;
+        }
+        
         const typeBits = decoder.readBits(2);
         const typeMap = ['h', 's', 'r'];
         const type = typeMap[typeBits];
+        console.log(`ASN.1 decoder: Candidate ${i+1} - type bits: ${typeBits}, type: ${type}`);
         
         if (type === 'h' || type === 'r') {
             const ip = decoder.readIP();
