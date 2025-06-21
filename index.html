@@ -145,9 +145,86 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Debug Panel -->
+        <div id="debug-panel" class="mt-4 bg-black text-green-400 rounded-lg p-4 font-mono text-xs overflow-auto max-h-64 hidden">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-white font-bold">Debug Console</span>
+                <button id="clear-debug" class="text-red-400 hover:text-red-300">Clear</button>
+            </div>
+            <div id="debug-content"></div>
+        </div>
     </div>
 
     <script type="module">
+        // Debug logging system for mobile
+        const debugLogs = [];
+        const maxDebugLogs = 100;
+        
+        // Initialize state early for debug panel
+        const state = {
+            role: null,
+            pc: null,
+            dc: null,
+            stream: null,
+            scanTarget: null,
+            lastData: null,
+            preGeneratedOffer: null,
+            preGeneratedQR: null,
+            cameraFacing: 'user' // 'user' for selfie cam, 'environment' for back
+        };
+        
+        function addDebugLog(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            debugLogs.push({ timestamp, message, type });
+            if (debugLogs.length > maxDebugLogs) {
+                debugLogs.shift();
+            }
+            updateDebugPanel();
+        }
+        
+        function updateDebugPanel() {
+            const panel = document.getElementById('debug-panel');
+            const content = document.getElementById('debug-content');
+            if (panel && content) {
+                // Show panel if we're device 2
+                if (state.role === 'device2') {
+                    panel.classList.remove('hidden');
+                }
+                
+                content.innerHTML = debugLogs.map(log => {
+                    const color = log.type === 'error' ? 'text-red-400' : 
+                                 log.type === 'warn' ? 'text-yellow-400' : 'text-green-400';
+                    return `<div class="${color}">[${log.timestamp}] ${log.message}</div>`;
+                }).join('');
+                
+                // Auto-scroll to bottom
+                content.scrollTop = content.scrollHeight;
+            }
+        }
+        
+        // Override console methods to capture logs
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn
+        };
+        
+        console.log = function(...args) {
+            originalConsole.log(...args);
+            addDebugLog(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalConsole.error(...args);
+            addDebugLog(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalConsole.warn(...args);
+            addDebugLog(args.join(' '), 'warn');
+        };
+        
         // Import version info
         import { VERSION, BUILD_DATE, GIT_COMMIT, CACHE_VERSION } from './version.js';
         
@@ -204,18 +281,6 @@
         
         // Update version in UI
         document.getElementById('version-display').textContent = `v${VERSION}`;
-        
-        const state = {
-            role: null,
-            pc: null,
-            dc: null,
-            stream: null,
-            scanTarget: null,
-            lastData: null,
-            preGeneratedOffer: null,
-            preGeneratedQR: null,
-            cameraFacing: 'user' // 'user' for selfie cam, 'environment' for back
-        };
 
         // Compression utilities
         function compressData(obj) {
@@ -1123,6 +1188,12 @@
                 state.cameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
                 await startScannerSplit();
             }
+        });
+        
+        // Debug panel clear button
+        document.getElementById('clear-debug').addEventListener('click', () => {
+            debugLogs.length = 0;
+            updateDebugPanel();
         });
     </script>
 </body>
