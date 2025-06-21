@@ -35,6 +35,9 @@ jobs:
           cp public/manifest.json dist/
           cp public/favicon.ico dist/
           cp public/*.png dist/ 2>/dev/null || true
+          cp base45-lib.js dist/ 2>/dev/null || true
+          cp sdp-compact.js dist/ 2>/dev/null || true
+          cp binary-codec.js dist/ 2>/dev/null || true
         
       - name: Setup Pages
         uses: actions/configure-pages@v4

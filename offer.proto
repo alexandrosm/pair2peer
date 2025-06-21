@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package qrwrtc;
+
+// Minimal WebRTC offer for QR code
+message QrWrtcOffer {
+  uint32 ver = 1;           // Schema version
+  string ice_ufrag = 2;     // 4-8 chars typically
+  string ice_pwd = 3;       // 22-24 chars typically
+  bytes fingerprint = 4;    // 48 bytes for SHA-256
+  repeated Candidate candidates = 5;
+}
+
+message Candidate {
+  enum Type {
+    HOST = 0;
+    SRFLX = 1;
+    RELAY = 2;
+  }
+  Type type = 1;
+  uint32 ip_port = 2;       // IP and port folded: (ip << 16) | port
+  uint32 raddr_rport = 3;   // For srflx: reflexive address
+}

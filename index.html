@@ -165,12 +165,11 @@
         function updateStatus(msg, type = 'info') {
             const el = document.getElementById('status');
             el.textContent = msg;
-            el.className = 'mb-4 p-3 rounded-lg text-center';
-            el.classList.add(
+            const colorClasses = 
                 type === 'error' ? 'bg-red-50 text-red-800' :
                 type === 'success' ? 'bg-green-50 text-green-800' :
-                'bg-blue-50 text-blue-800'
-            );
+                'bg-blue-50 text-blue-800';
+            el.className = 'mb-4 p-3 rounded-lg text-center ' + colorClasses;
         }
 
         async function startDevice1() {
