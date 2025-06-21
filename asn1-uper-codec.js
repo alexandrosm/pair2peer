@@ -49,7 +49,7 @@ export class UPEREncoder {
         }
         
         for (let i = 0; i < str.length; i++) {
-            this.writeBits(str.charCodeAt(i), 7); // Visible string uses 7 bits
+            this.writeBits(str.charCodeAt(i), 8); // Use 8 bits for full ASCII
         }
     }
 
@@ -139,7 +139,7 @@ export class UPERDecoder {
         
         let str = '';
         for (let i = 0; i < length; i++) {
-            str += String.fromCharCode(this.readBits(7));
+            str += String.fromCharCode(this.readBits(8)); // Match encoding
         }
         return str;
     }
