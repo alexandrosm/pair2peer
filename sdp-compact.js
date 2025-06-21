@@ -136,7 +136,7 @@ export function expandSDP(compact, type = 'offer') {
             console.log(`expandSDP: host candidate - IP: "${ip}", Port: "${port}", networkId: "${networkId}"`);
             // Use larger foundation numbers like browsers do
             const foundation = 100000000 + index;
-            lines.push(`a=candidate:${foundation} 1 udp 2122260223 ${ip} ${port} typ host generation 0 network-id ${networkId} network-cost 10`);
+            lines.push(`a=candidate:${foundation} 1 udp 2122260223 ${ip} ${port} typ host generation 0 network-id ${networkId}`);
         } else if (type === 's') {
             const [ip, port] = parts[1].split(':');
             const [raddr, rport] = parts[2].split(':');
@@ -145,7 +145,8 @@ export function expandSDP(compact, type = 'offer') {
             console.log(`expandSDP: srflx candidate - IP: "${ip}", Port: "${port}", raddr: "${raddr}", rport: "${rport}", networkId: "${networkId}"`);
             // Server reflexive candidate with large foundation
             const foundation = 200000000 + index;
-            const srflxLine = `a=candidate:${foundation} 1 udp 1686052607 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0 network-id ${networkId} network-cost 10`;
+            // Try without network-cost first
+            const srflxLine = `a=candidate:${foundation} 1 udp 1686052607 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0 network-id ${networkId}`;
             console.log(`expandSDP: Generated srflx candidate line: "${srflxLine}"`);
             lines.push(srflxLine);
         } else if (type === 'r') {
