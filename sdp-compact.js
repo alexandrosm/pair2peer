@@ -118,7 +118,7 @@ export function expandSDP(compact, type = 'offer') {
         `a=ice-pwd:${compact.p}`,
         'a=ice-options:trickle',
         `a=fingerprint:sha-256 ${compact.f}`,
-        `a=setup:${compact.s === 'a' ? 'actpass' : compact.s === 'p' ? 'passive' : 'active'}`,
+        `a=setup:${type === 'answer' ? 'active' : (compact.s === 'a' ? 'actpass' : compact.s === 'p' ? 'passive' : 'active')}`,
         'a=mid:0',
         'a=sctp-port:5000',
         'a=max-message-size:262144'
