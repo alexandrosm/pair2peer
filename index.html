@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.1.0</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.1.3</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -49,7 +49,7 @@
                         <p>QR Size: <span id="qr-size">0</span> chars</p>
                         <p>QR Bits: <span id="qr-bits">0</span> bits</p>
                         <p>Compression: <span id="compression-ratio">0</span>%</p>
-                        <p>Method: Binary + Base45 (No compression)</p>
+                        <p>Method: ASN.1 UPER + Base64</p>
                     </div>
                     <details class="text-xs">
                         <summary class="cursor-pointer text-blue-600">Manual copy</summary>
@@ -103,19 +103,18 @@
 
     <script type="module">
         // Import functions from modules
-        import { base45Encode, base45Decode } from './base45-lib.js?v=1.1.0';
         import { compactSDP, expandSDP } from './sdp-compact.js?v=1.1.0';
-        import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.1.0';
+        import { encodeWebRTCData, decodeWebRTCData } from './asn1-uper-codec.js?v=1.1.3';
         
         // Version info
-        const APP_VERSION = '1.1.0';
+        const APP_VERSION = '1.1.3';
         const BUILD_DATE = new Date().toISOString();
         const GIT_COMMIT = '8952b89'; // Will be updated by CI/CD
         
         console.log(`%cPair2Peer v${APP_VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
         console.log(`Commit: ${GIT_COMMIT}`);
-        console.log(`Binary codec: 89 bytes target, Base45 encoding`);
+        console.log(`ASN.1 UPER codec: Direct binary output`);
         console.log('---');
         
         // Update version in UI
@@ -134,26 +133,35 @@
 
         // Compression utilities
         function compressData(obj) {
-            // Use ultra-efficient binary encoding
-            const binary = encodeBinary(obj);
+            // Use ASN.1 UPER encoding
+            const binary = encodeWebRTCData(obj);
+            console.log('ASN.1 UPER encoded to', binary.length, 'bytes');
             
-            // For small binary data, skip compression (it adds overhead)
-            // Direct Base45 encoding is more efficient
-            return base45Encode(binary);
+            // Convert binary to string for QR code
+            // Using Latin-1 encoding to preserve all byte values
+            let binaryStr = '';
+            for (let i = 0; i < binary.length; i++) {
+                binaryStr += String.fromCharCode(binary[i]);
+            }
+            return btoa(binaryStr); // Base64 for safe transport
         }
 
         function decompressData(str) {
             try {
                 console.log('Decompressing string:', str.substring(0, 50) + '...');
                 
-                // 1. Decode from Base45
-                const bytes = base45Decode(str);
-                console.log('Base45 decoded to', bytes.length, 'bytes');
+                // Decode from Base64
+                const binaryStr = atob(str);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) {
+                    bytes[i] = binaryStr.charCodeAt(i);
+                }
+                console.log('Decoded to', bytes.length, 'bytes');
                 console.log('First 10 bytes:', Array.from(bytes.slice(0, 10)));
                 
-                // 2. Decode binary format
-                const decoded = decodeBinary(bytes);
-                console.log('Binary decoded:', decoded);
+                // Decode ASN.1 UPER format
+                const decoded = decodeWebRTCData(bytes);
+                console.log('ASN.1 UPER decoded:', decoded);
                 
                 return decoded;
             } catch (error) {
@@ -392,11 +400,11 @@
                 sdp: 'v=0\no=- 1 1 IN IP4 127.0.0.1\ns=-\nt=0 0\n...(~1KB of SDP)...',
                 candidates: ['candidate:...', 'candidate:...', 'candidate:...']
             });
-            const binarySize = encodeBinary(state.lastData || {}).length;
+            const binarySize = encodeWebRTCData(state.lastData || {}).length;
             const qrSize = data.length;
-            const qrBits = Math.ceil(qrSize * 5.5); // Base45 uses alphanumeric mode
+            const qrBits = Math.ceil(qrSize * 8); // Base64 uses 8 bits per char in QR
             
-            document.getElementById('qr-size').textContent = `${qrSize} (${binarySize} bytes binary)`;
+            document.getElementById('qr-size').textContent = `${qrSize} (${binarySize} bytes UPER)`;
             document.getElementById('qr-bits').textContent = qrBits;
             document.getElementById('compression-ratio').textContent = 
                 Math.round((1 - qrBits / 7744) * 100); // vs original ~1KB
@@ -604,12 +612,28 @@
             updateStatus('Running self test...', 'info');
             
             try {
-                // Test 1: Use the ACTUAL pre-generated offer if available
+                // Wait for pre-generation to complete if not ready
+                if (!state.preGeneratedOffer || !state.preGeneratedQR) {
+                    console.log('Waiting for pre-generation to complete...');
+                    let waitCount = 0;
+                    while ((!state.preGeneratedOffer || !state.preGeneratedQR) && waitCount < 50) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        waitCount++;
+                    }
+                    
+                    if (!state.preGeneratedOffer || !state.preGeneratedQR) {
+                        console.log('Pre-generation did not complete in time, running it now...');
+                        await preGenerateOffer();
+                    }
+                }
+                
+                // Test 1: Use the ACTUAL pre-generated offer
                 if (state.preGeneratedOffer && state.preGeneratedQR) {
                     console.log('\n--- TEST 1: Real WebRTC Offer ---');
                     console.log('Using actual pre-generated offer');
                     console.log('Original offer:', state.preGeneratedOffer);
                     console.log('Compressed QR:', state.preGeneratedQR);
+                    console.log('QR length:', state.preGeneratedQR.length, 'characters');
                     
                     // Simulate what Device 2 would do
                     const simulatedScan = state.preGeneratedQR;
@@ -630,6 +654,15 @@
                         return;
                     }
                     
+                    // Verify all fields match
+                    console.log('Comparing fields:');
+                    console.log('Type match:', decoded.t === state.preGeneratedOffer.t);
+                    console.log('Ufrag match:', decoded.u === state.preGeneratedOffer.u);
+                    console.log('Pwd match:', decoded.p === state.preGeneratedOffer.p);
+                    console.log('Setup match:', decoded.s === state.preGeneratedOffer.s);
+                    console.log('Fingerprint match:', decoded.f === state.preGeneratedOffer.f);
+                    console.log('Candidates match:', JSON.stringify(decoded.c) === JSON.stringify(state.preGeneratedOffer.c));
+                    
                     // Test SDP expansion
                     try {
                         const expandedSDP = expandSDP(decoded, 'offer');
@@ -639,9 +672,20 @@
                         // Check for the problematic line from the error
                         const lines = expandedSDP.split(/\r\n|\r|\n/);
                         const candidateLines = lines.filter(l => l.startsWith('a=candidate:'));
+                        console.log('Number of candidate lines:', candidateLines.length);
                         console.log('Candidate lines:', candidateLines);
                         
+                        // Check for known problematic lines
+                        const problematicLines = lines.filter(line => 
+                            line.includes('a=max-message-size') || 
+                            line.includes('a=end-of-candidates')
+                        );
+                        if (problematicLines.length > 0) {
+                            console.error('❌ Found problematic SDP lines:', problematicLines);
+                        }
+                        
                         // Validate each candidate
+                        let hasInvalidPort = false;
                         candidateLines.forEach((line, idx) => {
                             const portMatch = line.match(/ (\d+) typ /);
                             if (portMatch) {
@@ -649,9 +693,34 @@
                                 console.log(`Candidate ${idx + 1} port: ${port}`);
                                 if (port < 1 || port > 65535) {
                                     console.error(`❌ Invalid port number: ${port}`);
+                                    hasInvalidPort = true;
                                 }
                             }
                         });
+                        
+                        if (hasInvalidPort) {
+                            console.error('❌ REAL DATA TEST FAILED: Invalid port numbers detected');
+                            updateStatus('Self test failed: Invalid port numbers', 'error');
+                            return;
+                        }
+                        
+                        // CRITICAL: Test actual browser SDP parsing
+                        console.log('\nTesting browser SDP parsing...');
+                        const testPc = new RTCPeerConnection();
+                        try {
+                            await testPc.setRemoteDescription({
+                                type: 'offer',
+                                sdp: expandedSDP
+                            });
+                            console.log('✅ Browser successfully parsed the SDP');
+                            testPc.close();
+                        } catch (browserError) {
+                            console.error('❌ BROWSER SDP PARSING FAILED:', browserError);
+                            console.error('Failed SDP was:', expandedSDP);
+                            testPc.close();
+                            updateStatus('Self test failed: Browser cannot parse SDP', 'error');
+                            return;
+                        }
                         
                         console.log('✅ REAL DATA TEST PASSED');
                     } catch (sdpError) {
@@ -659,6 +728,8 @@
                         updateStatus('Self test failed: SDP expansion error', 'error');
                         return;
                     }
+                } else {
+                    console.log('❌ Real data test: Skipped (no data available)');
                 }
                 
                 // Test 2: Simple known data
@@ -678,6 +749,7 @@
                 const compressed = compressData(testData);
                 console.log('Compressed:', compressed);
                 console.log('Compressed length:', compressed.length, 'chars');
+                console.log('Binary size:', encodeWebRTCData(testData).length, 'bytes');
                 
                 // Decompress it
                 const decompressed = decompressData(compressed);
@@ -726,7 +798,7 @@
                 
                 // Summary
                 console.log('\n=== TEST SUMMARY ===');
-                console.log('Real data test:', state.preGeneratedOffer ? 'Tested' : 'Skipped (no data)');
+                console.log('Real data test:', state.preGeneratedOffer ? 'Passed' : 'Skipped (no data)');
                 console.log('Simple data test:', passed ? 'Passed' : 'Failed');
                 
             } catch (error) {
