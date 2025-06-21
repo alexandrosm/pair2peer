@@ -73,6 +73,10 @@ htmlFiles.forEach(htmlFile => {
         );
     }
     
+    // Fix service worker and manifest paths for GitHub Pages
+    html = html.replace(/href="\/manifest\.json"/g, 'href="./manifest.json"');
+    html = html.replace(/register\('\/sw\.js'\)/g, "register('./sw.js')");
+    
     // Write to dist directory
     const distPath = path.join(__dirname, 'dist', htmlFile);
     fs.mkdirSync(path.dirname(distPath), { recursive: true });
@@ -127,9 +131,9 @@ if (fs.existsSync(swPath)) {
     
     // Update the files list with cache bust parameters
     const cacheFiles = [
-        '/',
-        '/index.html',
-        ...jsModules.map(f => `/${f}?v=${buildHash}`)
+        './',
+        './index.html',
+        ...jsModules.map(f => `./${f}?v=${buildHash}`)
     ];
     
     sw = sw.replace(

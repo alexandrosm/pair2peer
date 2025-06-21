@@ -1,13 +1,13 @@
 // Service Worker for Pair2Peer
-const CACHE_NAME = 'pair2peer-v1.4.5-local';
+const CACHE_NAME = 'pair2peer-v1.4.6-local';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/version.js',
-  '/sdp-compact.js',
-  '/asn1-uper-codec.js',
-  '/binary-codec.js',
-  '/crc.js'
+  './',
+  './index.html',
+  './version.js',
+  './sdp-compact.js',
+  './asn1-uper-codec.js',
+  './binary-codec.js',
+  './crc.js'
 ];
 
 // Install event - cache assets
@@ -101,7 +101,7 @@ self.addEventListener('message', event => {
   
   if (event.data && event.data.type === 'CHECK_UPDATE') {
     // Force check for updates
-    fetch('/version-info.json?t=' + Date.now())
+    fetch('./version-info.json?t=' + Date.now())
       .then(response => response.json())
       .then(info => {
         event.ports[0].postMessage({ type: 'VERSION_INFO', data: info });

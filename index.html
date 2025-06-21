@@ -8,7 +8,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="./manifest.json">
+    <!-- Using Tailwind CDN for rapid prototyping. For production, consider building CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
@@ -160,7 +161,7 @@
         
         // Register service worker for offline support and updates
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
+            navigator.serviceWorker.register('./sw.js')
                 .then(registration => {
                     console.log('Service Worker registered:', registration.scope);
                     
@@ -608,7 +609,7 @@
                 video.srcObject = state.stream;
                 
                 const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 
                 const scan = () => {
                     if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -651,7 +652,7 @@
                 video.srcObject = state.stream;
                 
                 const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 
                 const scan = () => {
                     if (video.readyState === video.HAVE_ENOUGH_DATA) {
