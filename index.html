@@ -156,13 +156,13 @@
         </div>
     </div>
 
-    <script type="module">
-        // Debug logging system for mobile
-        const debugLogs = [];
-        const maxDebugLogs = 100;
+    <script>
+        // Debug logging system for mobile - MUST be before module imports
+        window.debugLogs = [];
+        window.maxDebugLogs = 100;
         
         // Initialize state early for debug panel
-        const state = {
+        window.state = {
             role: null,
             pc: null,
             dc: null,
@@ -174,25 +174,26 @@
             cameraFacing: 'user' // 'user' for selfie cam, 'environment' for back
         };
         
-        function addDebugLog(message, type = 'log') {
+        window.addDebugLog = function(message, type = 'log') {
             const timestamp = new Date().toLocaleTimeString();
-            debugLogs.push({ timestamp, message, type });
-            if (debugLogs.length > maxDebugLogs) {
-                debugLogs.shift();
+            window.debugLogs.push({ timestamp, message, type });
+            if (window.debugLogs.length > window.maxDebugLogs) {
+                window.debugLogs.shift();
             }
-            updateDebugPanel();
+            window.updateDebugPanel();
         }
         
-        function updateDebugPanel() {
+        window.updateDebugPanel = function() {
             const panel = document.getElementById('debug-panel');
             const content = document.getElementById('debug-content');
             if (panel && content) {
-                // Show panel if we're device 2
-                if (state.role === 'device2') {
+                // Always show panel on mobile devices
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (isMobile || window.state.role === 'device2') {
                     panel.classList.remove('hidden');
                 }
                 
-                content.innerHTML = debugLogs.map(log => {
+                content.innerHTML = window.debugLogs.map(log => {
                     const color = log.type === 'error' ? 'text-red-400' : 
                                  log.type === 'warn' ? 'text-yellow-400' : 'text-green-400';
                     return `<div class="${color}">[${log.timestamp}] ${log.message}</div>`;
@@ -211,22 +212,33 @@
         };
         
         console.log = function(...args) {
-            originalConsole.log(...args);
-            addDebugLog(args.join(' '), 'log');
+            originalConsole.log.apply(console, args);
+            window.addDebugLog(args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' '), 'log');
         };
         
         console.error = function(...args) {
-            originalConsole.error(...args);
-            addDebugLog(args.join(' '), 'error');
+            originalConsole.error.apply(console, args);
+            window.addDebugLog(args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' '), 'error');
         };
         
         console.warn = function(...args) {
-            originalConsole.warn(...args);
-            addDebugLog(args.join(' '), 'warn');
+            originalConsole.warn.apply(console, args);
+            window.addDebugLog(args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' '), 'warn');
         };
-        
+    </script>
+    
+    <script type="module">
         // Import version info
         import { VERSION, BUILD_DATE, GIT_COMMIT, CACHE_VERSION } from './version.js';
+        
+        // Use window.state instead of const state
+        const state = window.state;
         
         // Import functions from modules with dynamic version
         const sdpModule = await import(`./sdp-compact.js?v=${CACHE_VERSION}`);
@@ -1192,8 +1204,8 @@
         
         // Debug panel clear button
         document.getElementById('clear-debug').addEventListener('click', () => {
-            debugLogs.length = 0;
-            updateDebugPanel();
+            window.debugLogs.length = 0;
+            window.updateDebugPanel();
         });
     </script>
 </body>
