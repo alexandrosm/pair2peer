@@ -1,9 +1,9 @@
-// Base45 implementation for QR code optimization
-// Based on the specification used in EU Digital COVID Certificate
+// Base45 encoding/decoding library
+// RFC 9285 compliant implementation for QR code optimization
 
-const BASE45_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
+const BASE45_CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:';
 
-function base45Encode(buffer) {
+export function base45Encode(buffer) {
     const bytes = new Uint8Array(buffer);
     let result = '';
     
@@ -18,16 +18,16 @@ function base45Encode(buffer) {
         } else {
             // Process 1 byte -> 2 chars
             const x = bytes[i];
-            const d = Math.floor(x / 45);
-            const e = x % 45;
-            result += BASE45_CHARSET[d] + BASE45_CHARSET[e];
+            const b = x % 45;
+            const a = Math.floor(x / 45);
+            result += BASE45_CHARSET[a] + BASE45_CHARSET[b];
         }
     }
     
     return result;
 }
 
-function base45Decode(str) {
+export function base45Decode(str) {
     const result = [];
     
     for (let i = 0; i < str.length; i += 3) {
@@ -46,23 +46,17 @@ function base45Decode(str) {
             result.push(x & 0xFF);
         } else if (i + 1 < str.length) {
             // Process 2 chars -> 1 byte
-            const d = BASE45_CHARSET.indexOf(str[i]);
-            const e = BASE45_CHARSET.indexOf(str[i + 1]);
+            const a = BASE45_CHARSET.indexOf(str[i]);
+            const b = BASE45_CHARSET.indexOf(str[i + 1]);
             
-            if (d === -1 || e === -1) {
+            if (a === -1 || b === -1) {
                 throw new Error('Invalid Base45 character');
             }
             
-            const x = d * 45 + e;
+            const x = a * 45 + b;
             result.push(x);
         }
     }
     
     return new Uint8Array(result);
-}
-
-// Export for use in HTML
-if (typeof window !== 'undefined') {
-    window.base45Encode = base45Encode;
-    window.base45Decode = base45Decode;
 }
