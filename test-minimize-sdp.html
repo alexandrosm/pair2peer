@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimize SDP Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; font-size: 12px; }
+        .summary { margin-top: 20px; padding: 15px; border: 2px solid #333; }
+    </style>
+</head>
+<body>
+    <h1>Iterative SDP Minimization Test</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg, type = '') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+        
+        function logPre(content) {
+            const pre = document.createElement('pre');
+            pre.textContent = content;
+            output.appendChild(pre);
+        }
+        
+        async function testSDP(sdp) {
+            const pc = new RTCPeerConnection();
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp });
+                pc.close();
+                return true;
+            } catch (e) {
+                pc.close();
+                return false;
+            }
+        }
+        
+        async function minimize() {
+            // Step 1: Get browser SDP
+            log('Getting browser-generated SDP...');
+            const pc = new RTCPeerConnection();
+            pc.createDataChannel('test');
+            const offer = await pc.createOffer();
+            pc.close();
+            
+            log('Original browser SDP:');
+            logPre(offer.sdp);
+            
+            // Verify it works
+            if (!await testSDP(offer.sdp)) {
+                log('❌ Browser SDP doesn\'t work!', 'fail');
+                return;
+            }
+            log('✅ Browser SDP works', 'pass');
+            
+            // Split into lines
+            let lines = offer.sdp.split(/\r?\n/).filter(l => l.trim());
+            log(`\nStarting with ${lines.length} lines\n`);
+            
+            // Iterative removal
+            let removed = [];
+            let iteration = 1;
+            let changesMade = true;
+            
+            while (changesMade) {
+                log(`\nIteration ${iteration}:`, 'info');
+                changesMade = false;
+                
+                // Try removing each line
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    const line = lines[i];
+                    
+                    // Never remove v=0 (required by spec)
+                    if (line === 'v=0') continue;
+                    
+                    // Try without this line
+                    const testLines = [...lines.slice(0, i), ...lines.slice(i + 1)];
+                    const testSDPString = testLines.join('\r\n');
+                    
+                    if (await testSDP(testSDPString)) {
+                        log(`✅ Removed: ${line}`, 'pass');
+                        removed.push(line);
+                        lines = testLines;
+                        changesMade = true;
+                        break; // Start over with new lines array
+                    }
+                }
+                
+                if (!changesMade) {
+                    log('No more lines can be removed', 'info');
+                }
+                iteration++;
+            }
+            
+            // Show results
+            log('\n\nSUMMARY', 'info');
+            log('='.repeat(50));
+            
+            log('\nRemoved lines:', 'info');
+            removed.forEach(line => log(`  - ${line}`));
+            
+            log('\nRequired lines:', 'info');
+            lines.forEach(line => log(`  + ${line}`));
+            
+            log('\nMinimal working SDP:');
+            const minimalSDP = lines.join('\r\n');
+            logPre(minimalSDP);
+            
+            log(`\nReduction: ${offer.sdp.length} chars → ${minimalSDP.length} chars (${Math.round((1 - minimalSDP.length/offer.sdp.length) * 100)}% smaller)`);
+            
+            // Test our minimal SDP one more time
+            if (await testSDP(minimalSDP)) {
+                log('\n✅ Minimal SDP verified working!', 'pass');
+            } else {
+                log('\n❌ Minimal SDP verification failed!', 'fail');
+            }
+            
+            // Analyze what's required
+            log('\n\nAnalysis of required fields:');
+            const hasIceUfrag = lines.some(l => l.startsWith('a=ice-ufrag:'));
+            const hasIcePwd = lines.some(l => l.startsWith('a=ice-pwd:'));
+            const hasFingerprint = lines.some(l => l.startsWith('a=fingerprint:'));
+            const hasSetup = lines.some(l => l.startsWith('a=setup:'));
+            const hasMid = lines.some(l => l.startsWith('a=mid:'));
+            const hasSctpPort = lines.some(l => l.startsWith('a=sctp-port:'));
+            
+            log(`  ICE ufrag: ${hasIceUfrag ? 'REQUIRED' : 'not required'}`);
+            log(`  ICE pwd: ${hasIcePwd ? 'REQUIRED' : 'not required'}`);
+            log(`  Fingerprint: ${hasFingerprint ? 'REQUIRED' : 'not required'}`);
+            log(`  Setup: ${hasSetup ? 'REQUIRED' : 'not required'}`);
+            log(`  Mid: ${hasMid ? 'REQUIRED' : 'not required'}`);
+            log(`  SCTP port: ${hasSctpPort ? 'REQUIRED' : 'not required'}`);
+            
+            // Try to build our own SDP with these requirements
+            log('\n\nBuilding our own SDP with required fields:');
+            const ourLines = ['v=0'];
+            
+            // Add each required line from the minimal set
+            lines.forEach(line => {
+                if (line !== 'v=0') {
+                    ourLines.push(line);
+                }
+            });
+            
+            const ourSDP = ourLines.join('\r\n');
+            if (await testSDP(ourSDP)) {
+                log('✅ Our constructed SDP works!', 'pass');
+                
+                // Now test with modified values
+                log('\nTesting with our own values:');
+                let customSDP = ourSDP
+                    .replace(/a=ice-ufrag:.*/, 'a=ice-ufrag:test')
+                    .replace(/a=ice-pwd:.*/, 'a=ice-pwd:testpassword123456789012');
+                
+                if (await testSDP(customSDP)) {
+                    log('✅ Works with custom ice credentials!', 'pass');
+                } else {
+                    log('❌ Failed with custom ice credentials', 'fail');
+                }
+            } else {
+                log('❌ Our constructed SDP failed', 'fail');
+            }
+        }
+        
+        minimize();
+    </script>
+</body>
+</html>

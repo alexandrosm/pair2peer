@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimize SDP v2</title>
+    <style>
+        body { font-family: monospace; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>SDP Minimization v2</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg, type = '') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+        
+        function logPre(content) {
+            const pre = document.createElement('pre');
+            pre.textContent = content;
+            output.appendChild(pre);
+        }
+        
+        async function testSDP(sdp) {
+            const pc = new RTCPeerConnection();
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp });
+                pc.close();
+                return true;
+            } catch (e) {
+                pc.close();
+                return false;
+            }
+        }
+        
+        async function minimize() {
+            // Get browser SDP
+            log('Getting browser SDP...');
+            const pc = new RTCPeerConnection();
+            pc.createDataChannel('test');
+            const offer = await pc.createOffer();
+            pc.close();
+            
+            // Analyze line endings
+            const lineEnding = offer.sdp.includes('\r\n') ? '\r\n' : '\n';
+            log(`Browser uses line ending: ${lineEnding === '\r\n' ? 'CRLF' : 'LF'}`);
+            
+            // Split carefully preserving empty lines
+            const allLines = offer.sdp.split(lineEnding);
+            // Remove only the last empty line if it exists
+            if (allLines[allLines.length - 1] === '') {
+                allLines.pop();
+            }
+            
+            log(`Original SDP has ${allLines.length} lines (including any empty lines)`);
+            logPre(offer.sdp);
+            
+            // Test original
+            if (!await testSDP(offer.sdp)) {
+                log('❌ Original browser SDP doesn\'t work!', 'fail');
+                return;
+            }
+            log('✅ Original works\n', 'pass');
+            
+            // Try removing each line one by one
+            const required = new Set();
+            const removable = new Set();
+            
+            log('Testing each line individually...\n');
+            
+            for (let i = 0; i < allLines.length; i++) {
+                const line = allLines[i];
+                if (line === 'v=0') {
+                    log(`Line ${i}: "${line}" - REQUIRED (by spec)`, 'info');
+                    required.add(i);
+                    continue;
+                }
+                
+                // Test without this line
+                const testLines = [...allLines.slice(0, i), ...allLines.slice(i + 1)];
+                const testSDPStr = testLines.join(lineEnding);
+                
+                if (await testSDP(testSDPStr)) {
+                    log(`Line ${i}: "${line}" - removable`, 'pass');
+                    removable.add(i);
+                } else {
+                    log(`Line ${i}: "${line}" - REQUIRED`, 'fail');
+                    required.add(i);
+                }
+            }
+            
+            // Now try removing all removable lines at once
+            log('\n\nTrying to remove all removable lines at once...');
+            const minimalLines = allLines.filter((_, i) => required.has(i));
+            const minimalSDP = minimalLines.join(lineEnding);
+            
+            if (await testSDP(minimalSDP)) {
+                log('✅ All removable lines can be removed together!', 'pass');
+            } else {
+                log('❌ Cannot remove all removable lines at once', 'fail');
+                log('Need to find minimal combination...');
+                
+                // Try binary search or greedy approach
+                let workingLines = [...allLines];
+                const removed = [];
+                
+                for (const i of removable) {
+                    const testLines = workingLines.filter((_, idx) => {
+                        const originalIdx = allLines.indexOf(workingLines[idx]);
+                        return originalIdx !== i;
+                    });
+                    const testSDPStr = testLines.join(lineEnding);
+                    
+                    if (await testSDP(testSDPStr)) {
+                        workingLines = testLines;
+                        removed.push(allLines[i]);
+                        log(`✅ Removed: ${allLines[i]}`, 'pass');
+                    }
+                }
+                
+                minimalSDP = workingLines.join(lineEnding);
+            }
+            
+            log('\n\nFINAL MINIMAL SDP:');
+            logPre(minimalSDP);
+            
+            log(`\nReduction: ${offer.sdp.length} → ${minimalSDP.length} chars (${Math.round((1 - minimalSDP.length/offer.sdp.length) * 100)}% smaller)`);
+            
+            // Analyze what's required
+            const minLines = minimalSDP.split(lineEnding);
+            log('\nRequired components:');
+            log(`- Session: ${minLines.some(l => l.startsWith('o='))}`);
+            log(`- Media: ${minLines.some(l => l.startsWith('m='))}`);
+            log(`- ICE ufrag: ${minLines.some(l => l.startsWith('a=ice-ufrag:'))}`);
+            log(`- ICE pwd: ${minLines.some(l => l.startsWith('a=ice-pwd:'))}`);
+            log(`- Fingerprint: ${minLines.some(l => l.startsWith('a=fingerprint:'))}`);
+            log(`- Setup: ${minLines.some(l => l.startsWith('a=setup:'))}`);
+            log(`- Mid: ${minLines.some(l => l.startsWith('a=mid:'))}`);
+            log(`- SCTP port: ${minLines.some(l => l.startsWith('a=sctp-port:'))}`);
+            log(`- Max message size: ${minLines.some(l => l.startsWith('a=max-message-size:'))}`);
+            
+            // Test with our own values
+            log('\n\nTesting with custom values...');
+            let customSDP = minimalSDP;
+            
+            if (minimalSDP.includes('a=ice-ufrag:')) {
+                customSDP = customSDP.replace(/a=ice-ufrag:.*/, 'a=ice-ufrag:TEST');
+            }
+            if (minimalSDP.includes('a=ice-pwd:')) {
+                customSDP = customSDP.replace(/a=ice-pwd:.*/, 'a=ice-pwd:TESTPASSWORD123456789012');
+            }
+            
+            if (await testSDP(customSDP)) {
+                log('✅ Works with custom ICE credentials!', 'pass');
+            } else {
+                log('❌ Failed with custom ICE credentials', 'fail');
+            }
+        }
+        
+        minimize();
+    </script>
+</body>
+</html>

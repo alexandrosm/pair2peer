@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Line Ending Debug Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        pre { background: #f4f4f4; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Line Ending Debug Test</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg, type = '') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+        
+        async function test() {
+            // Get browser SDP
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            
+            log('Browser SDP analysis:');
+            log(`Length: ${offer.sdp.length} chars`);
+            log(`Contains \\r\\n: ${offer.sdp.includes('\r\n')}`);
+            log(`Contains \\n only: ${offer.sdp.includes('\n') && !offer.sdp.includes('\r\n')}`);
+            
+            // Show first 200 chars with visible line endings
+            const visible = offer.sdp.substring(0, 200)
+                .replace(/\r/g, '[CR]')
+                .replace(/\n/g, '[LF]\n');
+            log('\nFirst 200 chars with visible line endings:');
+            log(visible);
+            
+            // Test 1: Browser SDP as-is
+            log('\n\nTest 1: Browser SDP as-is');
+            const pc2 = new RTCPeerConnection();
+            try {
+                await pc2.setRemoteDescription(offer);
+                log('✅ Works', 'pass');
+            } catch (e) {
+                log('❌ Failed: ' + e.message, 'fail');
+            }
+            pc2.close();
+            
+            // Test 2: Browser SDP as string
+            log('\nTest 2: Browser SDP as string');
+            const pc3 = new RTCPeerConnection();
+            try {
+                await pc3.setRemoteDescription({ type: 'offer', sdp: offer.sdp });
+                log('✅ Works', 'pass');
+            } catch (e) {
+                log('❌ Failed: ' + e.message, 'fail');
+            }
+            pc3.close();
+            
+            // Test 3: Reconstruct with CRLF
+            log('\nTest 3: Reconstruct with CRLF');
+            const lines = offer.sdp.split(/\r?\n/);
+            const reconstructedCRLF = lines.join('\r\n');
+            const pc4 = new RTCPeerConnection();
+            try {
+                await pc4.setRemoteDescription({ type: 'offer', sdp: reconstructedCRLF });
+                log('✅ Works', 'pass');
+            } catch (e) {
+                log('❌ Failed: ' + e.message, 'fail');
+            }
+            pc4.close();
+            
+            // Test 4: Reconstruct with LF only
+            log('\nTest 4: Reconstruct with LF only');
+            const reconstructedLF = lines.join('\n');
+            const pc5 = new RTCPeerConnection();
+            try {
+                await pc5.setRemoteDescription({ type: 'offer', sdp: reconstructedLF });
+                log('✅ Works', 'pass');
+            } catch (e) {
+                log('❌ Failed: ' + e.message, 'fail');
+            }
+            pc5.close();
+            
+            // Test 5: Minimal SDP
+            log('\nTest 5: Minimal handcrafted SDP');
+            const minimal = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0`;
+            
+            const pc6 = new RTCPeerConnection();
+            try {
+                await pc6.setRemoteDescription({ type: 'offer', sdp: minimal });
+                log('✅ Minimal SDP works!', 'pass');
+            } catch (e) {
+                log('❌ Failed: ' + e.message, 'fail');
+                
+                // Try with CRLF
+                const minimalCRLF = minimal.replace(/\n/g, '\r\n');
+                const pc6b = new RTCPeerConnection();
+                try {
+                    await pc6b.setRemoteDescription({ type: 'offer', sdp: minimalCRLF });
+                    log('✅ Works with CRLF', 'pass');
+                } catch (e2) {
+                    log('❌ Still fails with CRLF: ' + e2.message, 'fail');
+                }
+                pc6b.close();
+            }
+            pc6.close();
+            
+            // Test 6: Check what's after last line
+            log('\n\nChecking end of browser SDP:');
+            const lastChars = offer.sdp.slice(-10);
+            log(`Last 10 chars: ${JSON.stringify(lastChars)}`);
+            const endsWithNewline = offer.sdp.endsWith('\n') || offer.sdp.endsWith('\r\n');
+            log(`Ends with newline: ${endsWithNewline}`);
+            
+            pc1.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

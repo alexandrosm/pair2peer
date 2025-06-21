@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Incremental SDP Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Incremental SDP Building Test</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg, type = '') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+        
+        function logPre(content) {
+            const pre = document.createElement('pre');
+            pre.textContent = content;
+            output.appendChild(pre);
+        }
+        
+        async function test() {
+            // Step 1: Get a working browser SDP
+            log('Step 1: Getting a working browser-generated SDP');
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            
+            log('Browser SDP:');
+            logPre(offer.sdp);
+            
+            // Verify it works
+            const pc2 = new RTCPeerConnection();
+            try {
+                await pc2.setRemoteDescription(offer);
+                log('✅ Browser SDP works', 'pass');
+            } catch (e) {
+                log('❌ Browser SDP failed: ' + e.message, 'fail');
+                return;
+            }
+            
+            // Step 2: Start with absolute minimal SDP
+            log('\nStep 2: Testing absolute minimal SDP');
+            const lines = offer.sdp.split(/\r?\n/).filter(l => l);
+            
+            // Extract just the session ID from browser
+            const sessionId = lines.find(l => l.startsWith('o='))?.split(' ')[1] || '1234567890';
+            
+            let minimalSDP = [
+                'v=0',
+                `o=- ${sessionId} 2 IN IP4 127.0.0.1`,
+                's=-',
+                't=0 0'
+            ];
+            
+            log('Testing with just session description:');
+            logPre(minimalSDP.join('\r\n'));
+            
+            const pc3 = new RTCPeerConnection();
+            try {
+                await pc3.setRemoteDescription({ type: 'offer', sdp: minimalSDP.join('\r\n') });
+                log('✅ Minimal session works', 'pass');
+            } catch (e) {
+                log('❌ Minimal session failed: ' + e.message, 'fail');
+                log('Cannot proceed - even minimal SDP fails');
+                return;
+            }
+            
+            // Step 3: Add media line
+            log('\nStep 3: Adding media line');
+            minimalSDP.push('m=application 9 UDP/DTLS/SCTP webrtc-datachannel');
+            
+            const pc4 = new RTCPeerConnection();
+            try {
+                await pc4.setRemoteDescription({ type: 'offer', sdp: minimalSDP.join('\r\n') });
+                log('✅ Works with media line', 'pass');
+            } catch (e) {
+                log('❌ Failed with media line: ' + e.message, 'fail');
+            }
+            
+            // Step 4: Add connection line
+            log('\nStep 4: Adding connection line');
+            minimalSDP.push('c=IN IP4 0.0.0.0');
+            
+            const pc5 = new RTCPeerConnection();
+            try {
+                await pc5.setRemoteDescription({ type: 'offer', sdp: minimalSDP.join('\r\n') });
+                log('✅ Works with connection line', 'pass');
+            } catch (e) {
+                log('❌ Failed with connection line: ' + e.message, 'fail');
+                // Try different IP
+                minimalSDP[minimalSDP.length - 1] = 'c=IN IP4 127.0.0.1';
+                const pc5b = new RTCPeerConnection();
+                try {
+                    await pc5b.setRemoteDescription({ type: 'offer', sdp: minimalSDP.join('\r\n') });
+                    log('✅ Works with c=IN IP4 127.0.0.1', 'pass');
+                } catch (e2) {
+                    log('❌ Still fails with 127.0.0.1: ' + e2.message, 'fail');
+                }
+            }
+            
+            // Step 5: Add attributes one by one
+            log('\nStep 5: Adding attributes one by one');
+            
+            // Extract real values from browser
+            const browserUfrag = lines.find(l => l.startsWith('a=ice-ufrag:'))?.split(':')[1];
+            const browserPwd = lines.find(l => l.startsWith('a=ice-pwd:'))?.split(':')[1];
+            const browserFingerprint = lines.find(l => l.startsWith('a=fingerprint:'))?.substring(14); // Skip "a=fingerprint:"
+            
+            const attributesToTest = [
+                'a=group:BUNDLE 0',
+                'a=extmap-allow-mixed',
+                'a=msid-semantic:WMS',
+                `a=ice-ufrag:${browserUfrag}`,
+                `a=ice-pwd:${browserPwd}`,
+                'a=ice-options:trickle',
+                browserFingerprint ? `a=fingerprint:${browserFingerprint}` : null,
+                'a=setup:actpass',
+                'a=mid:0'
+            ].filter(Boolean);
+            
+            let workingSDP = [...minimalSDP];
+            
+            for (const attr of attributesToTest) {
+                log(`\nTesting with: ${attr}`);
+                const testSDP = [...workingSDP, attr];
+                
+                const pc = new RTCPeerConnection();
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: testSDP.join('\r\n') });
+                    log(`✅ Works with ${attr}`, 'pass');
+                    workingSDP = testSDP;
+                } catch (e) {
+                    log(`❌ Failed with ${attr}: ${e.message}`, 'fail');
+                    
+                    // Special handling for specific attributes
+                    if (attr.startsWith('a=mid:')) {
+                        // Try without the attribute
+                        log('Note: a=mid seems problematic, continuing without it');
+                    } else if (attr.startsWith('a=group:BUNDLE')) {
+                        // Try moving it before media line
+                        const reorderedSDP = [
+                            ...minimalSDP.slice(0, 4), // v, o, s, t
+                            attr,
+                            ...minimalSDP.slice(4) // m, c
+                        ];
+                        const pcReorder = new RTCPeerConnection();
+                        try {
+                            await pcReorder.setRemoteDescription({ type: 'offer', sdp: reorderedSDP.join('\r\n') });
+                            log('✅ Works when a=group:BUNDLE is before media line', 'pass');
+                            workingSDP = reorderedSDP;
+                        } catch (e2) {
+                            log('❌ Still fails with reordering', 'fail');
+                        }
+                    }
+                }
+                pc.close();
+            }
+            
+            log('\n\nFinal working SDP:');
+            logPre(workingSDP.join('\r\n'));
+            
+            // Clean up
+            pc1.close();
+            pc2.close();
+            pc3.close();
+            pc4.close();
+            pc5.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

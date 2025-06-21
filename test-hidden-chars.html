@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hidden Characters Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .diff { color: orange; }
+        pre { background: #f4f4f4; padding: 10px; overflow-x: auto; white-space: pre-wrap; }
+        .char-box { 
+            display: inline-block; 
+            border: 1px solid #ccc; 
+            padding: 2px 4px; 
+            margin: 1px;
+            min-width: 20px;
+            text-align: center;
+        }
+        .special { background: yellow; }
+        .newline { background: lightblue; }
+    </style>
+</head>
+<body>
+    <h1>Hidden Characters Analysis</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg, type = '') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+        
+        function showHiddenChars(str, label) {
+            const div = document.createElement('div');
+            div.innerHTML = `<h3>${label}</h3>`;
+            
+            // Show as URL encoded
+            const urlEncoded = encodeURIComponent(str);
+            div.innerHTML += `<p><strong>URL Encoded:</strong></p><pre>${urlEncoded}</pre>`;
+            
+            // Show character codes
+            div.innerHTML += `<p><strong>Character codes:</strong></p>`;
+            const charDiv = document.createElement('div');
+            for (let i = 0; i < str.length; i++) {
+                const char = str[i];
+                const code = str.charCodeAt(i);
+                const span = document.createElement('span');
+                span.className = 'char-box';
+                
+                if (code === 13) {
+                    span.textContent = '\\r';
+                    span.className += ' newline';
+                } else if (code === 10) {
+                    span.textContent = '\\n';
+                    span.className += ' newline';
+                } else if (code === 32) {
+                    span.textContent = 'SP';
+                    span.className += ' special';
+                } else if (code === 9) {
+                    span.textContent = 'TAB';
+                    span.className += ' special';
+                } else if (code < 32 || code > 126) {
+                    span.textContent = `[${code}]`;
+                    span.className += ' special';
+                } else {
+                    span.textContent = char;
+                }
+                
+                span.title = `Char: '${char}' Code: ${code}`;
+                charDiv.appendChild(span);
+            }
+            div.appendChild(charDiv);
+            
+            // Show hex dump
+            div.innerHTML += `<p><strong>Hex dump:</strong></p>`;
+            const hexPre = document.createElement('pre');
+            let hex = '';
+            for (let i = 0; i < str.length; i++) {
+                hex += str.charCodeAt(i).toString(16).padStart(2, '0') + ' ';
+                if ((i + 1) % 16 === 0) hex += '\n';
+            }
+            hexPre.textContent = hex;
+            div.appendChild(hexPre);
+            
+            output.appendChild(div);
+        }
+        
+        async function test() {
+            // Get browser SDP
+            log('Getting browser SDP...');
+            const pc1 = new RTCPeerConnection();
+            pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            pc1.close();
+            
+            // Show the full browser SDP with hidden chars
+            showHiddenChars(offer.sdp, 'Browser SDP');
+            
+            // Show just the last line
+            const lines = offer.sdp.split(/\r?\n/);
+            log(`\nBrowser SDP has ${lines.length} lines`);
+            
+            if (lines.length > 0) {
+                showHiddenChars(lines[lines.length - 1], 'Last line of browser SDP');
+                showHiddenChars(lines[lines.length - 2], 'Second to last line of browser SDP');
+            }
+            
+            // Now create our reconstructed version
+            log('\n\nReconstruction test:');
+            
+            const filteredLines = lines.filter(l => l.trim() !== '');
+            const reconstructed = filteredLines.join('\r\n');
+            
+            showHiddenChars(reconstructed.slice(-100), 'Last 100 chars of reconstructed SDP');
+            
+            // Test both versions
+            const pc2 = new RTCPeerConnection();
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: offer.sdp });
+                log('✅ Browser SDP works', 'pass');
+            } catch (e) {
+                log('❌ Browser SDP failed: ' + e.message, 'fail');
+            }
+            pc2.close();
+            
+            const pc3 = new RTCPeerConnection();
+            try {
+                await pc3.setRemoteDescription({ type: 'offer', sdp: reconstructed });
+                log('✅ Reconstructed SDP works', 'pass');
+            } catch (e) {
+                log('❌ Reconstructed SDP failed: ' + e.message, 'fail');
+                
+                // Try adding trailing newline
+                log('\nTrying with trailing CRLF...');
+                const withTrailing = reconstructed + '\r\n';
+                
+                const pc4 = new RTCPeerConnection();
+                try {
+                    await pc4.setRemoteDescription({ type: 'offer', sdp: withTrailing });
+                    log('✅ Works with trailing CRLF!', 'pass');
+                } catch (e2) {
+                    log('❌ Still fails with trailing CRLF', 'fail');
+                }
+                pc4.close();
+            }
+            pc3.close();
+            
+            // Compare endings
+            log('\n\nEnding comparison:');
+            log(`Browser SDP ends with: ${JSON.stringify(offer.sdp.slice(-10))}`);
+            log(`Reconstructed ends with: ${JSON.stringify(reconstructed.slice(-10))}`);
+        }
+        
+        test();
+    </script>
+</body>
+</html>

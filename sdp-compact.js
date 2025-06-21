@@ -119,7 +119,9 @@ export function expandSDP(compact, type = 'offer') {
         'a=ice-options:trickle',
         `a=fingerprint:sha-256 ${compact.f}`,
         `a=setup:${compact.s === 'a' ? 'actpass' : compact.s === 'p' ? 'passive' : 'active'}`,
-        'a=mid:0'
+        'a=mid:0',
+        'a=sctp-port:5000',
+        'a=max-message-size:262144'
     ];
     
     // Add candidates
@@ -162,7 +164,8 @@ export function expandSDP(compact, type = 'offer') {
     // Note: a=end-of-candidates is not universally supported and can cause parsing errors
     // It's better to omit it and let the browser handle candidate completion
     
-    return lines.join('\r\n'); // Use CRLF for proper SDP format
+    // IMPORTANT: SDP requires a trailing CRLF after the last line
+    return lines.join('\r\n') + '\r\n';
 }
 
 // Export for use in HTML
