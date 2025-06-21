@@ -21,9 +21,20 @@ export function compactSDP(sdp) {
         }
         else if (line.includes('a=candidate:')) {
             const parts = line.split(' ');
+            // Debug log
+            console.log(`compactSDP: Processing candidate line: "${line}"`);
+            console.log(`compactSDP: Parts:`, parts);
+            
+            if (parts.length < 8) {
+                console.warn(`compactSDP: Skipping invalid candidate line with ${parts.length} parts`);
+                return;
+            }
+            
             const ip = parts[4];
             const port = parts[5];
             const typ = parts[7];
+            
+            console.log(`compactSDP: IP="${ip}", Port="${port}", Type="${typ}"`);
             
             if (typ === 'host') {
                 candidates.push(`h,${ip}:${port}`);
@@ -36,6 +47,8 @@ export function compactSDP(sdp) {
             }
         }
     });
+    
+    console.log(`compactSDP: Returning ${candidates.length} candidates:`, candidates);
     
     return {
         u: ufrag,
