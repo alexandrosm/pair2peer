@@ -94,6 +94,7 @@ export function expandSDP(compact, type = 'offer') {
     
     // Add candidates
     if (compact.c && Array.isArray(compact.c)) {
+        let candidateIndex = 1;
         compact.c.forEach(cand => {
         const parts = cand.split(',');
         const type = parts[0];
@@ -102,18 +103,20 @@ export function expandSDP(compact, type = 'offer') {
             const [ip, port] = parts[1].split(':');
             // Debug log
             console.log(`expandSDP: host candidate - IP: "${ip}", Port: "${port}"`);
-            lines.push(`a=candidate:1 1 udp 2122260223 ${ip} ${port} typ host generation 0 network-id 1`);
+            // Use unique foundation for each candidate
+            lines.push(`a=candidate:${candidateIndex++} 1 udp 2122260223 ${ip} ${port} typ host generation 0 network-id 1`);
         } else if (type === 's') {
             const [ip, port] = parts[1].split(':');
             const [raddr, rport] = parts[2].split(':');
             // Debug log
             console.log(`expandSDP: srflx candidate - IP: "${ip}", Port: "${port}", raddr: "${raddr}", rport: "${rport}"`);
-            lines.push(`a=candidate:2 1 udp 1686052607 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0 network-id 1`);
+            // Server reflexive candidate
+            lines.push(`a=candidate:${candidateIndex++} 1 udp 1686052607 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0`);
         } else if (type === 'r') {
             const [ip, port] = parts[1].split(':');
             // Debug log
             console.log(`expandSDP: relay candidate - IP: "${ip}", Port: "${port}"`);
-            lines.push(`a=candidate:3 1 udp 41885439 ${ip} ${port} typ relay raddr 0.0.0.0 rport 0 generation 0 network-id 1`);
+            lines.push(`a=candidate:${candidateIndex++} 1 udp 41885439 ${ip} ${port} typ relay raddr 0.0.0.0 rport 0 generation 0`);
         }
         });
     }
