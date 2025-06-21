@@ -215,6 +215,8 @@
                 
                 // Store for stats
                 state.lastData = offerData;
+                console.log('Offer data:', offerData);
+                console.log('Fingerprint length:', offerData.f ? offerData.f.length : 0);
                 
                 // Compress and show
                 const compressed = compressData(offerData);
@@ -225,9 +227,9 @@
             }
         }
 
-        async function processOffer(compressed) {
+        async function processOffer(compressedData) {
             try {
-                const data = decompressData(compressed);
+                const data = decompressData(compressedData);
                 if (!data || data.t !== 'o') throw new Error('Invalid offer');
                 
                 updateStatus('Processing offer...');
@@ -287,9 +289,9 @@
             }
         }
 
-        async function processAnswer(compressed) {
+        async function processAnswer(compressedData) {
             try {
-                const data = decompressData(compressed);
+                const data = decompressData(compressedData);
                 if (!data || data.t !== 'a') throw new Error('Invalid answer');
                 
                 updateStatus('Connecting...');

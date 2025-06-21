@@ -20,14 +20,13 @@ export function encodeBinary(data) {
         buffer.push(i < pwd.length ? pwd.charCodeAt(i) : 0);
     }
     
-    // 48 bytes: fingerprint (convert from hex to binary)
+    // Fingerprint (convert from hex to binary)
+    // Detect hash type from length: SHA-1=40, SHA-256=64, SHA-384=96, SHA-512=128 hex chars
     const fpHex = (data.f || '').replace(/:/g, '');
-    for (let i = 0; i < 96; i += 2) {
-        if (i < fpHex.length) {
-            buffer.push(parseInt(fpHex.substr(i, 2), 16));
-        } else {
-            buffer.push(0);
-        }
+    const fpBytes = fpHex.length / 2;
+    
+    for (let i = 0; i < fpHex.length; i += 2) {
+        buffer.push(parseInt(fpHex.substr(i, 2), 16));
     }
     
     // 1 byte: number of candidates
@@ -96,12 +95,26 @@ export function decodeBinary(bytes) {
         offset++;
     }
     
-    // 48 bytes: fingerprint
+    // Fingerprint - detect length based on remaining data
+    // Calculate fingerprint length by looking at total message size
+    const baseSize = 29; // 1 (type/setup) + 4 (ufrag) + 24 (pwd)
+    const remainingBytes = bytes.length - baseSize;
+    
+    // Determine fingerprint length
+    let fpLength = 32; // Default SHA-256
+    if (remainingBytes >= 20 + 1 + 7 && remainingBytes < 32 + 1 + 7) {
+        fpLength = 20; // SHA-1
+    } else if (remainingBytes >= 48 + 1 + 7 && remainingBytes < 64 + 1 + 7) {
+        fpLength = 48; // SHA-384
+    } else if (remainingBytes >= 64 + 1 + 7) {
+        fpLength = 64; // SHA-512
+    }
+    
     let fingerprint = '';
-    for (let i = 0; i < 48; i++) {
+    for (let i = 0; i < fpLength && offset < bytes.length - 1; i++) {
         const hex = bytes[offset++].toString(16).padStart(2, '0').toUpperCase();
         fingerprint += hex;
-        if (i < 47) fingerprint += ':';
+        if (i < fpLength - 1) fingerprint += ':';
     }
     
     // 1 byte: candidate count
