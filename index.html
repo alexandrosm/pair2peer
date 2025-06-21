@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.6</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.7</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -22,12 +22,18 @@
             
             <!-- Start -->
             <div id="step-start" class="step-view">
-                <p class="text-gray-600 text-center mb-6">Direct P2P - No Server Needed</p>
+                <p class="text-gray-600 text-center mb-4">Direct P2P - No Server Needed</p>
+                <div class="text-xs text-gray-500 mb-4 p-2 bg-gray-50 rounded">
+                    <p class="font-semibold">Instructions:</p>
+                    <p>1. Click "Device 1" on computer/first device</p>
+                    <p>2. Click "Device 2" on phone/second device</p>
+                    <p>3. Scan QR from Device 1 with Device 2</p>
+                </div>
                 <button id="device1-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
-                    Device 1 (Start)
+                    Device 1 (Start) - Shows QR
                 </button>
                 <button id="device2-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg mb-2">
-                    Device 2 (Join)
+                    Device 2 (Join) - Scans QR
                 </button>
                 <button id="selftest-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-sm">
                     Self Test (Debug)
@@ -102,7 +108,7 @@
         import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.0.6';
         
         // Version info
-        const APP_VERSION = '1.0.6';
+        const APP_VERSION = '1.0.7';
         const BUILD_DATE = new Date().toISOString();
         const GIT_COMMIT = '8952b89'; // Will be updated by CI/CD
         
@@ -269,6 +275,9 @@
                     throw new Error('Decompression failed - returned null');
                 }
                 if (data.t !== 'o') {
+                    if (data.t === 'a') {
+                        throw new Error('Received an answer instead of offer. Make sure to click Device 1 first, then Device 2.');
+                    }
                     throw new Error(`Invalid offer type: expected 'o', got '${data.t}'`);
                 }
                 
