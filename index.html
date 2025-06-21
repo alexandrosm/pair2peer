@@ -17,7 +17,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.4.0</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">Loading...</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -105,23 +105,24 @@
     </div>
 
     <script type="module">
-        // Import functions from modules
-        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.4.0';
-        import { encodeWebRTCData, decodeWebRTCData } from './asn1-uper-codec.js?v=1.4.0';
+        // Import version info
+        import { VERSION, BUILD_DATE, GIT_COMMIT, CACHE_VERSION } from './version.js';
         
-        // Version info
-        const APP_VERSION = '1.4.0';
-        const BUILD_DATE = new Date().toISOString();
-        const GIT_COMMIT = '7245896'; // Will be updated by CI/CD
+        // Import functions from modules with dynamic version
+        const sdpModule = await import(`./sdp-compact.js?v=${CACHE_VERSION}`);
+        const asn1Module = await import(`./asn1-uper-codec.js?v=${CACHE_VERSION}`);
         
-        console.log(`%cPair2Peer v${APP_VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
+        const { compactSDP, expandSDP } = sdpModule;
+        const { encodeWebRTCData, decodeWebRTCData } = asn1Module;
+        
+        console.log(`%cPair2Peer v${VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
         console.log(`Commit: ${GIT_COMMIT}`);
         console.log(`ASN.1 UPER codec: Direct binary output`);
         console.log('---');
         
         // Update version in UI
-        document.getElementById('version-display').textContent = `v${APP_VERSION}`;
+        document.getElementById('version-display').textContent = `v${VERSION}`;
         
         const state = {
             role: null,
