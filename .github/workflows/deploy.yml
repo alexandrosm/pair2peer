@@ -38,6 +38,7 @@ jobs:
           cp base45-lib.js dist/ 2>/dev/null || true
           cp sdp-compact.js dist/ 2>/dev/null || true
           cp binary-codec.js dist/ 2>/dev/null || true
+          cp asn1-uper-codec.js dist/ 2>/dev/null || true
           
       - name: Update version info
         run: |
