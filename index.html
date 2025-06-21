@@ -485,6 +485,18 @@
             
             showStep('show');
             updateStatus(title);
+            
+            // Auto-advance for Device 1: automatically start scanner
+            if (state.role === 'device1' && title.includes('Step 1')) {
+                // Start scanner immediately for Device 1
+                setTimeout(() => {
+                    state.scanTarget = 'answer';
+                    document.getElementById('scan-title').textContent = 'Scan answer from Device 2:';
+                    showStep('scan');
+                    startScanner();
+                    updateStatus('Show QR to Device 2, then scan their response');
+                }, 500); // Brief delay to ensure QR is visible
+            }
         }
 
         function setupDataChannel() {
