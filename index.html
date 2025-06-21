@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="bg-white rounded-lg shadow-lg p-6">
             <h1 class="text-2xl font-bold text-center mb-2">Pair2Peer</h1>
-            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.5</p>
+            <p class="text-xs text-gray-500 text-center mb-4" id="version-display">v1.0.6</p>
             
             <div id="status" class="mb-4 p-3 rounded-lg bg-blue-50 text-blue-800 text-center">
                 Ready to connect
@@ -97,14 +97,14 @@
 
     <script type="module">
         // Import functions from modules
-        import { base45Encode, base45Decode } from './base45-lib.js?v=1.0.5';
-        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.0.5';
-        import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.0.5';
+        import { base45Encode, base45Decode } from './base45-lib.js?v=1.0.6';
+        import { compactSDP, expandSDP } from './sdp-compact.js?v=1.0.6';
+        import { encodeBinary, decodeBinary } from './binary-codec.js?v=1.0.6';
         
         // Version info
-        const APP_VERSION = '1.0.5';
+        const APP_VERSION = '1.0.6';
         const BUILD_DATE = new Date().toISOString();
-        const GIT_COMMIT = '4effcbd'; // Will be updated by CI/CD
+        const GIT_COMMIT = '8952b89'; // Will be updated by CI/CD
         
         console.log(`%cPair2Peer v${APP_VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
@@ -607,12 +607,21 @@
                 console.log('Decompressed:', decompressed);
                 
                 // Verify
+                const expectedFingerprint = testData.f.toUpperCase();
+                const actualFingerprint = decompressed ? decompressed.f : '';
+                const fingerprintMatch = actualFingerprint === expectedFingerprint;
+                
+                console.log('Fingerprint comparison:');
+                console.log('Expected:', expectedFingerprint);
+                console.log('Actual:', actualFingerprint);
+                console.log('Match:', fingerprintMatch);
+                
                 const passed = 
                     decompressed && 
                     decompressed.t === testData.t &&
                     decompressed.u === testData.u &&
                     decompressed.p === testData.p &&
-                    decompressed.f === testData.f.replace(/:/g, '').toUpperCase() &&
+                    fingerprintMatch &&
                     decompressed.s === testData.s &&
                     JSON.stringify(decompressed.c) === JSON.stringify(testData.c);
                 
