@@ -30,11 +30,18 @@ export function compactSDP(sdp) {
                 return;
             }
             
+            const protocol = parts[2]; // 'udp' or 'tcp'
             const ip = parts[4];
             const port = parts[5];
             const typ = parts[7];
             
-            console.log(`compactSDP: IP="${ip}", Port="${port}", Type="${typ}"`);
+            console.log(`compactSDP: Protocol="${protocol}", IP="${ip}", Port="${port}", Type="${typ}"`);
+            
+            // Skip TCP candidates with port 9 (active TCP candidates)
+            if (protocol === 'tcp' && port === '9') {
+                console.log(`compactSDP: Skipping TCP active candidate with port 9`);
+                return;
+            }
             
             if (typ === 'host') {
                 candidates.push(`h,${ip}:${port}`);
