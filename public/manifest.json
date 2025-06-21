@@ -22,5 +22,8 @@
     }
   ],
   "categories": ["utilities", "productivity"],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "serviceworker": {
+    "src": "./sw.js"
+  }
 }

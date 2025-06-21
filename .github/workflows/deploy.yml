@@ -26,28 +26,16 @@ jobs:
         with:
           node-version: 20
           
-      - name: Create dist directory
-        run: mkdir -p dist
-        
-      - name: Copy files to dist
+      - name: Copy build script
         run: |
-          cp index.html dist/
-          cp public/manifest.json dist/
-          cp public/favicon.ico dist/
-          cp public/*.png dist/ 2>/dev/null || true
-          cp base45-lib.js dist/ 2>/dev/null || true
-          cp sdp-compact.js dist/ 2>/dev/null || true
-          cp binary-codec.js dist/ 2>/dev/null || true
-          cp asn1-uper-codec.js dist/ 2>/dev/null || true
-          cp version.js dist/ 2>/dev/null || true
-          cp crc.js dist/ 2>/dev/null || true
-          cp update-version.js dist/ 2>/dev/null || true
+          cp build-with-cache-bust.js .
+          cp sw.js . 2>/dev/null || true
           
-      - name: Update version info
+      - name: Build with cache busting
         run: |
-          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          sed -i "s/GIT_COMMIT = '[^']*'/GIT_COMMIT = '$SHORT_SHA'/" dist/index.html
-          echo "Updated commit hash to $SHORT_SHA"
+          node build-with-cache-bust.js
+        env:
+          GITHUB_SHA: ${{ github.sha }}
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
