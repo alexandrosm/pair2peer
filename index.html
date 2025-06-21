@@ -316,9 +316,24 @@
         function decompressData(str) {
             try {
                 console.log('Decompressing string:', str.substring(0, 50) + '...');
+                console.log('String length:', str.length);
+                
+                // Check if string is empty or invalid
+                if (!str || str.length === 0) {
+                    console.error('Empty QR data received');
+                    return null;
+                }
                 
                 // Decode from Base64
-                const binaryStr = atob(str);
+                let binaryStr;
+                try {
+                    binaryStr = atob(str);
+                } catch (e) {
+                    console.error('Base64 decode error:', e);
+                    console.error('Invalid base64 string:', str);
+                    return null;
+                }
+                
                 const bytesWithCRC = new Uint8Array(binaryStr.length);
                 for (let i = 0; i < binaryStr.length; i++) {
                     bytesWithCRC[i] = binaryStr.charCodeAt(i);
@@ -801,6 +816,8 @@
                         const code = jsQR(imageData.data, imageData.width, imageData.height);
                         
                         if (code) {
+                            console.log('QR code detected:', code.data.substring(0, 50) + '...');
+                            console.log('QR code length:', code.data.length);
                             stopCamera();
                             if (state.scanTarget === 'answer') {
                                 processAnswer(code.data);
