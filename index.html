@@ -9,6 +9,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <!-- Using Tailwind CDN for rapid prototyping. For production, consider building CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -885,7 +886,6 @@
                         
                         // Check for known problematic lines
                         const problematicLines = lines.filter(line => 
-                            line.includes('a=max-message-size') || 
                             line.includes('a=end-of-candidates')
                         );
                         if (problematicLines.length > 0) {
@@ -948,7 +948,7 @@
                     p: 'TestPassword123456789012',
                     f: '01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF',
                     s: 'a',
-                    c: ['h,192.168.1.100:12345', 's,10.0.0.1:54321,203.0.113.1:3478']
+                    c: ['h,192.168.1.100:12345,1', 's,10.0.0.1:54321,203.0.113.1:3478,1']
                 };
                 
                 console.log('Test data:', testData);
