@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Browser SRFLX Format Test</title>
+</head>
+<body>
+    <h1>Browser Generated SRFLX Candidates</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function testBrowserSrflx() {
+            // Create a peer connection with STUN server to get srflx candidates
+            const pc = new RTCPeerConnection({
+                iceServers: [{
+                    urls: 'stun:stun.l.google.com:19302'
+                }]
+            });
+            
+            const candidates = [];
+            
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    candidates.push(event.candidate);
+                    if (event.candidate.type === 'srflx') {
+                        output.textContent += '\nSRFLX Candidate Found:\n';
+                        output.textContent += 'Full SDP line: ' + event.candidate.candidate + '\n';
+                        output.textContent += 'Type: ' + event.candidate.type + '\n';
+                        output.textContent += 'Protocol: ' + event.candidate.protocol + '\n';
+                        output.textContent += 'Address: ' + event.candidate.address + '\n';
+                        output.textContent += 'Port: ' + event.candidate.port + '\n';
+                        output.textContent += 'Related Address: ' + event.candidate.relatedAddress + '\n';
+                        output.textContent += 'Related Port: ' + event.candidate.relatedPort + '\n';
+                        output.textContent += '---\n';
+                    }
+                } else {
+                    output.textContent += '\nAll candidates gathered. Total: ' + candidates.length + '\n';
+                    output.textContent += '\nAll candidate lines:\n';
+                    candidates.forEach((c, i) => {
+                        output.textContent += `${i+1}. ${c.candidate}\n`;
+                    });
+                }
+            };
+            
+            // Create data channel to trigger ICE gathering
+            pc.createDataChannel('test');
+            
+            // Create offer
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            output.textContent = 'Gathering ICE candidates...\n';
+            output.textContent += 'Please wait for srflx candidates (may take a few seconds)...\n\n';
+        }
+        
+        testBrowserSrflx();
+    </script>
+</body>
+</html>

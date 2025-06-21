@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Line Endings</title>
+</head>
+<body>
+    <h1>Testing SDP Line Endings</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            const pc = new RTCPeerConnection();
+            
+            const baseSDP = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000
+a=candidate:1 1 udp 2122260223 192.168.1.7 61066 typ host generation 0
+a=candidate:5 1 udp 1686052607 24.17.60.171 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0`;
+            
+            // Test different line endings
+            const testCases = [
+                { name: 'LF (\\n)', sdp: baseSDP },
+                { name: 'CRLF (\\r\\n)', sdp: baseSDP.split('\n').join('\r\n') },
+                { name: 'Mixed LF and CRLF', sdp: baseSDP.split('\n').map((line, i) => 
+                    i % 2 === 0 ? line : line + '\r').join('\n') },
+                { name: 'CR only (\\r)', sdp: baseSDP.split('\n').join('\r') },
+            ];
+            
+            for (const test of testCases) {
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp: test.sdp });
+                    output.textContent += `✅ ${test.name}: ACCEPTED\n`;
+                    
+                    // Show what line endings are in the SDP
+                    const hasLF = test.sdp.includes('\n');
+                    const hasCR = test.sdp.includes('\r');
+                    const hasCRLF = test.sdp.includes('\r\n');
+                    output.textContent += `   Contains: ${hasCRLF ? 'CRLF' : ''}${hasCR && !hasCRLF ? 'CR' : ''}${hasLF && !hasCRLF ? 'LF' : ''}\n`;
+                } catch (e) {
+                    output.textContent += `❌ ${test.name}: REJECTED\n`;
+                    output.textContent += `   Error: ${e.message}\n`;
+                }
+                output.textContent += '\n';
+            }
+            
+            // Also test what the browser generates
+            output.textContent += 'Browser-generated SDP line endings:\n';
+            const testPc = new RTCPeerConnection();
+            testPc.createDataChannel('test');
+            const offer = await testPc.createOffer();
+            await testPc.setLocalDescription(offer);
+            
+            const browserSdp = testPc.localDescription.sdp;
+            const hasLF = browserSdp.includes('\n');
+            const hasCR = browserSdp.includes('\r');
+            const hasCRLF = browserSdp.includes('\r\n');
+            output.textContent += `Browser uses: ${hasCRLF ? 'CRLF' : ''}${hasCR && !hasCRLF ? 'CR' : ''}${hasLF && !hasCRLF ? 'LF' : ''}\n`;
+            
+            pc.close();
+            testPc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

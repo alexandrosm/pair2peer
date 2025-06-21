@@ -146,7 +146,8 @@ export function expandSDP(compact, type = 'offer') {
             // Use simple sequential foundation numbers
             const foundation = index + 1;
             // Minimal srflx candidate without network-id
-            const srflxLine = `a=candidate:${foundation} 1 udp 1686052607 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0`;
+            // Using browser's actual priority value for srflx candidates
+            const srflxLine = `a=candidate:${foundation} 1 udp 1685855999 ${ip} ${port} typ srflx raddr ${raddr} rport ${rport} generation 0`;
             console.log(`expandSDP: Generated srflx candidate line: "${srflxLine}"`);
             lines.push(srflxLine);
         } else if (type === 'r') {

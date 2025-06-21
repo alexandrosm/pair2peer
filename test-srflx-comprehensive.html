@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comprehensive SRFLX Test</title>
+</head>
+<body>
+    <h1>Finding Valid SRFLX Format</h1>
+    <pre id="output"></pre>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // Base SDP that we know works
+            const baseSDp = `v=0
+o=- 1234567890 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS
+m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+c=IN IP4 0.0.0.0
+a=ice-ufrag:test
+a=ice-pwd:testpassword123456789012
+a=ice-options:trickle
+a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF
+a=setup:actpass
+a=mid:0
+a=sctp-port:5000`;
+
+            // First, let's get a real srflx candidate from the browser
+            output.textContent = 'Getting real browser SRFLX candidate...\n';
+            
+            const testPc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            let browserSrflxCandidate = null;
+            testPc.onicecandidate = (e) => {
+                if (e.candidate && e.candidate.type === 'srflx') {
+                    browserSrflxCandidate = e.candidate.candidate;
+                }
+            };
+            
+            testPc.createDataChannel('test');
+            const offer = await testPc.createOffer();
+            await testPc.setLocalDescription(offer);
+            
+            // Wait for candidates
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            if (browserSrflxCandidate) {
+                output.textContent += `Browser SRFLX: ${browserSrflxCandidate}\n\n`;
+            } else {
+                output.textContent += 'No SRFLX candidate generated (might be behind NAT)\n\n';
+            }
+            
+            testPc.close();
+            
+            // Now test various formats
+            const pc = new RTCPeerConnection();
+            
+            const testCases = [
+                // Our current format
+                'a=candidate:5 1 udp 1686052607 24.17.60.171 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0',
+                
+                // Without generation
+                'a=candidate:5 1 udp 1686052607 24.17.60.171 61066 typ srflx raddr 192.168.1.7 rport 61066',
+                
+                // With component 0 instead of 1
+                'a=candidate:5 0 udp 1686052607 24.17.60.171 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0',
+                
+                // With TCP instead of UDP
+                'a=candidate:5 1 tcp 1686052607 24.17.60.171 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0',
+                
+                // With different priority formats
+                'a=candidate:5 1 udp 2130706431 24.17.60.171 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0',
+                'a=candidate:5 1 udp 1845501695 24.17.60.171 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0',
+                
+                // With tcptype
+                'a=candidate:5 1 udp 1686052607 24.17.60.171 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0 tcptype passive',
+                
+                // Different IP formats
+                'a=candidate:5 1 udp 1686052607 1.2.3.4 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0',
+                'a=candidate:5 1 udp 1686052607 ::1 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0',
+                
+                // With ufrag
+                'a=candidate:5 1 udp 1686052607 24.17.60.171 61066 typ srflx raddr 192.168.1.7 rport 61066 generation 0 ufrag test',
+                
+                // Real browser format if we got one
+                browserSrflxCandidate
+            ].filter(Boolean);
+            
+            output.textContent += 'Testing formats:\n\n';
+            
+            for (const candidate of testCases) {
+                const sdp = baseSDp + '\r\n' + candidate;
+                try {
+                    await pc.setRemoteDescription({ type: 'offer', sdp });
+                    output.textContent += `✅ VALID: ${candidate}\n`;
+                } catch (e) {
+                    output.textContent += `❌ INVALID: ${candidate}\n`;
+                    // Try to extract more specific error info
+                    if (e.message.includes('Invalid SDP line')) {
+                        // Parse the candidate to see what might be wrong
+                        const parts = candidate.split(' ');
+                        output.textContent += `   Parts count: ${parts.length}\n`;
+                    }
+                }
+            }
+            
+            pc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>

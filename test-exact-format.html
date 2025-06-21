@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Exact Format Preservation</title>
+</head>
+<body>
+    <h1>Testing SDP Format Preservation</h1>
+    <pre id="output"></pre>
+    
+    <script type="module">
+        import { compactSDP, expandSDP } from './sdp-compact.js';
+        
+        const output = document.getElementById('output');
+        
+        async function test() {
+            // Create a real SDP with srflx candidate
+            const pc = new RTCPeerConnection({
+                iceServers: [{urls: 'stun:stun.l.google.com:19302'}]
+            });
+            
+            pc.createDataChannel('test');
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            // Wait for candidates
+            await new Promise(resolve => {
+                pc.onicecandidate = (e) => {
+                    if (!e.candidate) resolve();
+                };
+            });
+            
+            const originalSDP = pc.localDescription.sdp;
+            output.textContent = '1. Original SDP from browser:\n';
+            output.textContent += originalSDP + '\n\n';
+            
+            // Extract srflx candidates
+            const srflxLines = originalSDP.split('\n').filter(line => 
+                line.includes('typ srflx')
+            );
+            
+            output.textContent += '2. Original SRFLX candidates:\n';
+            srflxLines.forEach(line => {
+                output.textContent += line + '\n';
+            });
+            
+            // Compact it
+            const compacted = compactSDP(originalSDP);
+            output.textContent += '\n3. Compacted srflx candidates:\n';
+            compacted.c.forEach(c => {
+                if (c.startsWith('s,')) {
+                    output.textContent += c + '\n';
+                }
+            });
+            
+            // Expand it back
+            const expanded = expandSDP(compacted);
+            output.textContent += '\n4. Expanded SDP:\n';
+            output.textContent += expanded + '\n\n';
+            
+            // Extract expanded srflx candidates
+            const expandedSrflxLines = expanded.split('\n').filter(line => 
+                line.includes('typ srflx')
+            );
+            
+            output.textContent += '5. Expanded SRFLX candidates:\n';
+            expandedSrflxLines.forEach(line => {
+                output.textContent += line + '\n';
+            });
+            
+            output.textContent += '\n6. Comparing original vs expanded srflx:\n';
+            output.textContent += 'Original: ' + (srflxLines[0] || 'none') + '\n';
+            output.textContent += 'Expanded: ' + (expandedSrflxLines[0] || 'none') + '\n';
+            
+            // Test if browser accepts the expanded version
+            output.textContent += '\n7. Testing browser acceptance:\n';
+            const testPc = new RTCPeerConnection();
+            try {
+                await testPc.setRemoteDescription({
+                    type: 'offer',
+                    sdp: expanded
+                });
+                output.textContent += '✅ Browser accepted the expanded SDP\n';
+            } catch (e) {
+                output.textContent += '❌ Browser rejected: ' + e.message + '\n';
+                
+                // Find the exact difference
+                const origParts = (srflxLines[0] || '').split(' ');
+                const expParts = (expandedSrflxLines[0] || '').split(' ');
+                
+                output.textContent += '\n8. Part-by-part comparison:\n';
+                const maxLen = Math.max(origParts.length, expParts.length);
+                for (let i = 0; i < maxLen; i++) {
+                    const orig = origParts[i] || '[missing]';
+                    const exp = expParts[i] || '[missing]';
+                    if (orig !== exp) {
+                        output.textContent += `  Part ${i}: "${orig}" -> "${exp}" ❌\n`;
+                    } else {
+                        output.textContent += `  Part ${i}: "${orig}" ✓\n`;
+                    }
+                }
+            }
+            
+            pc.close();
+            testPc.close();
+        }
+        
+        test();
+    </script>
+</body>
+</html>
