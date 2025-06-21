@@ -26,11 +26,6 @@ jobs:
         with:
           node-version: 20
           
-      - name: Copy build script
-        run: |
-          cp build-with-cache-bust.js .
-          cp sw.js . 2>/dev/null || true
-          
       - name: Build with cache busting
         run: |
           node build-with-cache-bust.js
