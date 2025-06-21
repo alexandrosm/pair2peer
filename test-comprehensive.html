@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comprehensive WebRTC Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .pass { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        .info { color: blue; }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Comprehensive WebRTC Compression Test</h1>
+    
+    <div id="test1" class="test-section">
+        <h2>Test 1: SDP Compaction and Expansion</h2>
+        <div id="test1-output"></div>
+    </div>
+    
+    <div id="test2" class="test-section">
+        <h2>Test 2: ASN.1 UPER Encoding</h2>
+        <div id="test2-output"></div>
+    </div>
+    
+    <div id="test3" class="test-section">
+        <h2>Test 3: Full Compression Pipeline</h2>
+        <div id="test3-output"></div>
+    </div>
+    
+    <div id="test4" class="test-section">
+        <h2>Test 4: Browser SDP Parsing</h2>
+        <div id="test4-output"></div>
+    </div>
+    
+    <div id="test5" class="test-section">
+        <h2>Test 5: End-to-End WebRTC Connection</h2>
+        <div id="test5-output"></div>
+    </div>
+
+    <script type="module">
+        import { compactSDP, expandSDP } from './sdp-compact.js';
+        import { encodeWebRTCData, decodeWebRTCData } from './asn1-uper-codec.js';
+        
+        function log(testId, message, type = '') {
+            const output = document.getElementById(`${testId}-output`);
+            const span = document.createElement('div');
+            span.className = type;
+            span.textContent = message;
+            output.appendChild(span);
+        }
+        
+        function logPre(testId, content) {
+            const output = document.getElementById(`${testId}-output`);
+            const pre = document.createElement('pre');
+            pre.textContent = content;
+            output.appendChild(pre);
+        }
+        
+        // Test 1: SDP Compaction and Expansion
+        async function test1() {
+            log('test1', 'Creating browser offer...');
+            
+            const pc = new RTCPeerConnection();
+            pc.createDataChannel('test');
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            log('test1', 'Original SDP length: ' + offer.sdp.length + ' chars', 'info');
+            
+            // Compact the SDP
+            const compacted = compactSDP(offer.sdp);
+            log('test1', 'Compacted data:', 'info');
+            logPre('test1', JSON.stringify(compacted, null, 2));
+            
+            // Expand it back
+            const expanded = expandSDP(compacted);
+            log('test1', 'Expanded SDP length: ' + expanded.length + ' chars', 'info');
+            
+            // Check critical fields are preserved
+            const hasUfrag = expanded.includes(`a=ice-ufrag:${compacted.u}`);
+            const hasPwd = expanded.includes(`a=ice-pwd:${compacted.p}`);
+            const hasFingerprint = expanded.includes(`a=fingerprint:sha-256 ${compacted.f}`);
+            
+            if (hasUfrag && hasPwd && hasFingerprint) {
+                log('test1', '✅ PASS: All critical fields preserved', 'pass');
+            } else {
+                log('test1', '❌ FAIL: Some fields not preserved', 'fail');
+            }
+            
+            pc.close();
+        }
+        
+        // Test 2: ASN.1 UPER Encoding
+        async function test2() {
+            log('test2', 'Testing ASN.1 UPER encoding...');
+            
+            const testData = {
+                t: 'o',
+                u: 'testufrag',
+                p: 'testpassword123456789012',
+                f: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                s: 'a',
+                c: ['h,192.168.1.100:50000,1', 's,24.17.60.171:60000,192.168.1.100:50000,1']
+            };
+            
+            log('test2', 'Test data:', 'info');
+            logPre('test2', JSON.stringify(testData, null, 2));
+            
+            // Encode
+            const encoded = encodeWebRTCData(testData);
+            log('test2', 'Encoded size: ' + encoded.length + ' bytes', 'info');
+            log('test2', 'Binary (hex): ' + Array.from(encoded).map(b => b.toString(16).padStart(2, '0')).join(' '), 'info');
+            
+            // Decode
+            const decoded = decodeWebRTCData(encoded);
+            log('test2', 'Decoded data:', 'info');
+            logPre('test2', JSON.stringify(decoded, null, 2));
+            
+            // Verify
+            const match = JSON.stringify(testData) === JSON.stringify(decoded);
+            if (match) {
+                log('test2', '✅ PASS: Encoding/decoding works correctly', 'pass');
+            } else {
+                log('test2', '❌ FAIL: Data mismatch after decode', 'fail');
+            }
+        }
+        
+        // Test 3: Full Compression Pipeline
+        async function test3() {
+            log('test3', 'Testing full compression pipeline...');
+            
+            // Create a real offer
+            const pc = new RTCPeerConnection();
+            pc.createDataChannel('test');
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            log('test3', 'Original SDP size: ' + offer.sdp.length + ' chars', 'info');
+            
+            // Full compression pipeline
+            const compacted = compactSDP(offer.sdp);
+            const offerData = { t: 'o', ...compacted };
+            const binary = encodeWebRTCData(offerData);
+            
+            // Convert to base64 for QR
+            let binaryStr = '';
+            for (let i = 0; i < binary.length; i++) {
+                binaryStr += String.fromCharCode(binary[i]);
+            }
+            const base64 = btoa(binaryStr);
+            
+            log('test3', 'Compression results:', 'info');
+            log('test3', '- Binary size: ' + binary.length + ' bytes', 'info');
+            log('test3', '- Base64 size: ' + base64.length + ' chars', 'info');
+            log('test3', '- Compression ratio: ' + ((1 - base64.length / offer.sdp.length) * 100).toFixed(1) + '%', 'info');
+            
+            // Decompress
+            const binaryDecoded = atob(base64);
+            const uint8Array = new Uint8Array(binaryDecoded.length);
+            for (let i = 0; i < binaryDecoded.length; i++) {
+                uint8Array[i] = binaryDecoded.charCodeAt(i);
+            }
+            
+            const decodedData = decodeWebRTCData(uint8Array);
+            const expandedSDP = expandSDP(decodedData);
+            
+            log('test3', 'Decompressed SDP size: ' + expandedSDP.length + ' chars', 'info');
+            
+            if (expandedSDP.includes('a=ice-ufrag:') && expandedSDP.includes('a=fingerprint:')) {
+                log('test3', '✅ PASS: Full pipeline works', 'pass');
+            } else {
+                log('test3', '❌ FAIL: Decompression failed', 'fail');
+            }
+            
+            pc.close();
+        }
+        
+        // Test 4: Browser SDP Parsing
+        async function test4() {
+            log('test4', 'Testing browser SDP parsing...');
+            
+            const testData = {
+                u: 'testufrag123',
+                p: 'testpassword123456789012345',
+                f: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF',
+                s: 'a',
+                c: []
+            };
+            
+            const sdp = expandSDP(testData);
+            log('test4', 'Generated SDP:', 'info');
+            logPre('test4', sdp);
+            
+            const pc = new RTCPeerConnection();
+            try {
+                await pc.setRemoteDescription({ type: 'offer', sdp: sdp });
+                log('test4', '✅ PASS: Browser accepted the SDP', 'pass');
+                
+                // Test with candidates
+                testData.c = ['h,192.168.1.100:50000,1'];
+                const sdpWithHost = expandSDP(testData);
+                
+                const pc2 = new RTCPeerConnection();
+                await pc2.setRemoteDescription({ type: 'offer', sdp: sdpWithHost });
+                log('test4', '✅ PASS: Browser accepted SDP with host candidate', 'pass');
+                
+                // Test with srflx
+                testData.c.push('s,24.17.60.171:60000,192.168.1.100:50000,1');
+                const sdpWithSrflx = expandSDP(testData);
+                
+                const pc3 = new RTCPeerConnection();
+                await pc3.setRemoteDescription({ type: 'offer', sdp: sdpWithSrflx });
+                log('test4', '✅ PASS: Browser accepted SDP with srflx candidate', 'pass');
+                
+                pc2.close();
+                pc3.close();
+            } catch (e) {
+                log('test4', '❌ FAIL: ' + e.message, 'fail');
+                logPre('test4', 'Failed SDP:\n' + sdp);
+            }
+            pc.close();
+        }
+        
+        // Test 5: End-to-End WebRTC Connection
+        async function test5() {
+            log('test5', 'Testing end-to-end connection (simulated)...');
+            
+            // Device 1: Create offer
+            const pc1 = new RTCPeerConnection();
+            const dc1 = pc1.createDataChannel('test');
+            const offer = await pc1.createOffer();
+            await pc1.setLocalDescription(offer);
+            
+            log('test5', 'Device 1: Created offer', 'info');
+            
+            // Compress offer
+            const compacted = compactSDP(offer.sdp);
+            const offerData = { t: 'o', ...compacted };
+            const binary = encodeWebRTCData(offerData);
+            let binaryStr = '';
+            for (let i = 0; i < binary.length; i++) {
+                binaryStr += String.fromCharCode(binary[i]);
+            }
+            const compressed = btoa(binaryStr);
+            
+            log('test5', 'Compressed offer: ' + compressed.length + ' chars', 'info');
+            
+            // Device 2: Decompress and create answer
+            const binaryDecoded = atob(compressed);
+            const uint8Array = new Uint8Array(binaryDecoded.length);
+            for (let i = 0; i < binaryDecoded.length; i++) {
+                uint8Array[i] = binaryDecoded.charCodeAt(i);
+            }
+            const decodedOffer = decodeWebRTCData(uint8Array);
+            const expandedOffer = expandSDP(decodedOffer);
+            
+            const pc2 = new RTCPeerConnection();
+            let dc2;
+            pc2.ondatachannel = (e) => {
+                dc2 = e.channel;
+                log('test5', 'Device 2: Data channel received', 'info');
+            };
+            
+            try {
+                await pc2.setRemoteDescription({ type: 'offer', sdp: expandedOffer });
+                log('test5', 'Device 2: Set remote description successfully', 'info');
+                
+                const answer = await pc2.createAnswer();
+                await pc2.setLocalDescription(answer);
+                
+                // Compress answer
+                const answerCompacted = compactSDP(answer.sdp);
+                const answerData = { t: 'a', ...answerCompacted };
+                const answerBinary = encodeWebRTCData(answerData);
+                let answerBinaryStr = '';
+                for (let i = 0; i < answerBinary.length; i++) {
+                    answerBinaryStr += String.fromCharCode(answerBinary[i]);
+                }
+                const compressedAnswer = btoa(answerBinaryStr);
+                
+                log('test5', 'Compressed answer: ' + compressedAnswer.length + ' chars', 'info');
+                
+                // Device 1: Set answer
+                const answerDecoded = atob(compressedAnswer);
+                const answerUint8Array = new Uint8Array(answerDecoded.length);
+                for (let i = 0; i < answerDecoded.length; i++) {
+                    answerUint8Array[i] = answerDecoded.charCodeAt(i);
+                }
+                const decodedAnswer = decodeWebRTCData(answerUint8Array);
+                const expandedAnswer = expandSDP(decodedAnswer, 'answer');
+                
+                await pc1.setRemoteDescription({ type: 'answer', sdp: expandedAnswer });
+                log('test5', 'Device 1: Set remote description successfully', 'info');
+                
+                log('test5', '✅ PASS: Full handshake completed', 'pass');
+                
+                // Check connection states
+                log('test5', 'PC1 state: ' + pc1.connectionState, 'info');
+                log('test5', 'PC2 state: ' + pc2.connectionState, 'info');
+                
+            } catch (e) {
+                log('test5', '❌ FAIL: ' + e.message, 'fail');
+            }
+            
+            pc1.close();
+            pc2.close();
+        }
+        
+        // Run all tests
+        async function runAllTests() {
+            await test1();
+            await test2();
+            await test3();
+            await test4();
+            await test5();
+        }
+        
+        runAllTests();
+    </script>
+</body>
+</html>
