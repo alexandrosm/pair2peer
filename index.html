@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="version" content="2.2.3">
+    <meta name="version" content="2.2.4">
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <!-- Using Tailwind CDN for rapid prototyping. For production, consider building CSS -->
@@ -302,9 +302,15 @@
                 }
             });
             
-            navigator.serviceWorker.register('./sw.js')
+            // Register with cache-busting to ensure updates
+            navigator.serviceWorker.register(`./sw.js?v=${VERSION}`, {
+                updateViaCache: 'none' // Force byte-by-byte comparison
+            })
                 .then(registration => {
                     console.log('Service Worker registered:', registration.scope);
+                    
+                    // Check for updates immediately
+                    registration.update();
                     
                     // Check for updates on visibility change
                     document.addEventListener('visibilitychange', () => {
@@ -1333,8 +1339,18 @@
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 
+                let lastScanTime = 0;
+                const SCAN_THROTTLE = 250; // Match the other scanner throttle
+                
                 const scan = () => {
+                    const now = Date.now();
+                    if (now - lastScanTime < SCAN_THROTTLE) {
+                        setTimeout(() => requestAnimationFrame(scan), SCAN_THROTTLE - (now - lastScanTime));
+                        return;
+                    }
+                    
                     if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        lastScanTime = now;
                         canvas.width = video.videoWidth;
                         canvas.height = video.videoHeight;
                         ctx.drawImage(video, 0, 0);
@@ -1390,14 +1406,15 @@
                 
                 let scanning = false;
                 let lastScanTime = 0;
-                const SCAN_THROTTLE = 100; // Minimum ms between scans
+                const SCAN_THROTTLE = 250; // Increased to 250ms between scans to reduce console spam
                 
                 const scan = () => {
                     if (!state.stream || scanning) return;
                     
                     const now = Date.now();
                     if (now - lastScanTime < SCAN_THROTTLE) {
-                        requestAnimationFrame(scan);
+                        // Schedule next scan after remaining throttle time
+                        setTimeout(() => requestAnimationFrame(scan), SCAN_THROTTLE - (now - lastScanTime));
                         return;
                     }
                     

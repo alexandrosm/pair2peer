@@ -1,0 +1,23 @@
+mode: Mainline
+branches:
+  master:
+    regex: ^master$|^main$
+    tag: ''
+    increment: Patch
+    prevent-increment-of-merged-branch-version: true
+    track-merge-target: false
+    tracks-release-branches: false
+    is-release-branch: true
+
+# Conventional Commits configuration
+major-version-bump-message: '\+semver:\s?(breaking|major)'
+minor-version-bump-message: '\+semver:\s?(feature|minor)'
+patch-version-bump-message: '\+semver:\s?(fix|patch)'
+no-bump-message: '\+semver:\s?(skip|none)'
+
+# Enable commit message parsing
+commit-message-incrementing: Enabled
+
+# Additional settings
+commit-date-format: yyyy-MM-dd
+update-build-number: true

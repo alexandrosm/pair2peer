@@ -14,10 +14,7 @@
     "show-port": "node show-port.js",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
-    "version:sync": "node update-version.js",
-    "preversion": "npm run version:sync",
-    "postversion": "npm run version:sync && git add -A"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.5",

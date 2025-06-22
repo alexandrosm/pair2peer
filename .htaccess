@@ -1,0 +1,9 @@
+# Prevent caching of service worker
+<FilesMatch "sw\.js$">
+  Header set Cache-Control "no-cache, no-store, must-revalidate"
+  Header set Pragma "no-cache"
+  Header set Expires "0"
+</FilesMatch>
+
+# Allow cross-origin requests for PWA
+Header set Access-Control-Allow-Origin "*"

@@ -20,13 +20,55 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for GitVersion
+        
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0
+        with:
+          versionSpec: '5.x'
+      
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0
+      
+      - name: Display version
+        run: |
+          echo "Version: ${{ steps.gitversion.outputs.semVer }}"
+          echo "FullVersion: ${{ steps.gitversion.outputs.fullSemVer }}"
+          echo "ShortSha: ${{ steps.gitversion.outputs.shortSha }}"
         
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           
+      - name: Update version files
+        run: |
+          # Update package.json
+          npm version ${{ steps.gitversion.outputs.semVer }} --no-git-tag-version --allow-same-version
+          
+          # Update version.js
+          cat > version.js << EOF
+          // Centralized version configuration
+          export const VERSION = '${{ steps.gitversion.outputs.semVer }}';
+          export const BUILD_DATE = new Date().toISOString();
+          export const GIT_COMMIT = '${{ steps.gitversion.outputs.shortSha }}';
+          
+          // Version string for cache busting
+          export const CACHE_VERSION = VERSION;
+          EOF
+          
+          # Update sw.js cache version
+          sed -i "s/const CACHE_VERSION = '[^']*'/const CACHE_VERSION = '${{ steps.gitversion.outputs.semVer }}'/" sw.js
+          
+          # Update index.html meta tag
+          sed -i 's/<meta name="version" content="[^"]*"/<meta name="version" content="${{ steps.gitversion.outputs.semVer }}"/' index.html
+          
       - name: Build with cache busting
+        env:
+          VERSION: ${{ steps.gitversion.outputs.semVer }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
           node build-with-cache-bust.js
         env:
