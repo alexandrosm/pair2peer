@@ -940,10 +940,16 @@
 
         async function startScannerSplit() {
             try {
+                console.log('startScannerSplit: Requesting camera access...');
+                updateStatus('Requesting camera access...');
+                
                 // Use selected camera (default to selfie cam for easier scanning)
                 state.stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: state.cameraFacing }
                 });
+                
+                console.log('startScannerSplit: Camera access granted');
+                updateStatus('Point cameras at each other');
                 
                 const video = document.getElementById('video-split');
                 video.srcObject = state.stream;
@@ -985,8 +991,14 @@
                 video.addEventListener('loadedmetadata', scan);
                 
             } catch (error) {
-                updateStatus('Camera error in split view', 'error');
                 console.error('Split scanner error:', error);
+                updateStatus(`Camera error: ${error.message}`, 'error');
+                
+                // Add click-to-retry functionality
+                document.getElementById('status').onclick = () => {
+                    location.reload();
+                };
+                document.getElementById('status').style.cursor = 'pointer';
             }
         }
 
