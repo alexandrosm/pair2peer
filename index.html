@@ -882,7 +882,9 @@
                     text: data,
                     width: 320,
                     height: 320,
-                    correctLevel: QRCode.CorrectLevel.L
+                    correctLevel: QRCode.CorrectLevel.L,
+                    colorDark: '#ffffff',  // White QR code
+                    colorLight: '#1f2937'  // Dark gray background (matches bg-gray-800)
                 });
             } catch (error) {
                 // If QR is too big, show error
@@ -1323,7 +1325,16 @@
                         ctx.drawImage(video, 0, 0);
                         
                         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        
+                        // Try scanning with different inversionAttempts for better glare handling
+                        let code = null;
+                        const inversionAttempts = ['dontInvert', 'onlyInvert', 'attemptBoth'];
+                        for (const attempt of inversionAttempts) {
+                            code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: attempt
+                            });
+                            if (code) break;
+                        }
                         
                         if (code) {
                             stopCamera();
@@ -1335,7 +1346,9 @@
                             return;
                         }
                     }
-                    if (state.stream) requestAnimationFrame(scan);
+                    if (state.stream) {
+                        setTimeout(() => requestAnimationFrame(scan), SCAN_THROTTLE);
+                    }
                 };
                 
                 video.addEventListener('loadedmetadata', scan);
@@ -1387,7 +1400,16 @@
                         ctx.drawImage(video, 0, 0);
                         
                         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        
+                        // Try scanning with different inversionAttempts for better glare handling
+                        let code = null;
+                        const inversionAttempts = ['dontInvert', 'onlyInvert', 'attemptBoth'];
+                        for (const attempt of inversionAttempts) {
+                            code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: attempt
+                            });
+                            if (code) break;
+                        }
                         
                         if (code) {
                             console.log('QR code detected:', code.data.substring(0, 50) + '...');
@@ -1410,7 +1432,9 @@
                         }
                         scanning = false;
                     }
-                    if (state.stream) requestAnimationFrame(scan);
+                    if (state.stream) {
+                        setTimeout(() => requestAnimationFrame(scan), SCAN_THROTTLE);
+                    }
                 };
                 
                 video.addEventListener('loadedmetadata', scan);
