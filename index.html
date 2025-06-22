@@ -17,14 +17,14 @@
     <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4">
     <div class="w-full max-w-md mx-auto">
         <!-- Header - Always at top -->
         <div class="text-center mb-4">
             <h1 class="text-2xl font-bold">Pair2Peer</h1>
-            <p class="text-xs text-gray-500" id="version-display">Loading...</p>
+            <p class="text-xs text-gray-400" id="version-display">Loading...</p>
             <!-- Debug toggle moved here -->
-            <button id="debug-toggle" class="text-xs text-gray-400 hover:text-gray-600 mt-2">
+            <button id="debug-toggle" class="text-xs text-gray-500 hover:text-gray-300 mt-2">
                 ▶ Debug
             </button>
             <div id="debug-options" class="hidden mt-2">
@@ -38,8 +38,8 @@
         </div>
         
         <!-- Main container with flexible height -->
-        <div class="bg-white rounded-lg shadow-lg p-4">
-            <div id="status" class="mb-3 p-2 rounded-lg bg-blue-50 text-blue-800 text-center text-sm">
+        <div class="bg-gray-800 rounded-lg shadow-lg p-4">
+            <div id="status" class="mb-3 p-2 rounded-lg bg-blue-900 text-blue-100 text-center text-sm">
                 Starting camera...
             </div>
             
@@ -54,14 +54,14 @@
                 <!-- QR Code at top -->
                 <div class="mb-3">
                     <div id="qr-display-split" class="mx-auto mb-2 flex justify-center"></div>
-                    <p class="text-center text-sm text-gray-600">Show your QR</p>
+                    <p class="text-center text-sm text-gray-400">Show your QR</p>
                 </div>
                 
                 <!-- Camera Section -->
                 <div class="mb-3">
                     <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio: 4/3;">
                         <video id="video-split" class="w-full h-full object-cover" autoplay playsinline></video>
-                        <button id="switch-camera-split" class="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 p-2 rounded-lg shadow-lg" title="Switch camera">
+                        <button id="switch-camera-split" class="absolute top-2 right-2 bg-gray-700 bg-opacity-80 hover:bg-opacity-100 p-2 rounded-lg shadow-lg text-gray-100" title="Switch camera">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
                                 <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
@@ -71,7 +71,7 @@
                             </svg>
                         </button>
                     </div>
-                    <p class="text-center text-sm text-gray-600 mt-1">Scan their QR</p>
+                    <p class="text-center text-sm text-gray-400 mt-1">Scan their QR</p>
                 </div>
             </div>
 
@@ -80,7 +80,7 @@
                 <p class="text-center mb-4" id="scan-title">Scan QR Code:</p>
                 <div class="relative bg-black rounded-lg overflow-hidden mb-4" style="aspect-ratio: 4/3;">
                     <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
-                    <button id="switch-camera-btn" class="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 p-2 rounded-lg shadow-lg" title="Switch camera">
+                    <button id="switch-camera-btn" class="absolute top-2 right-2 bg-gray-700 bg-opacity-80 hover:bg-opacity-100 p-2 rounded-lg shadow-lg text-gray-100" title="Switch camera">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
                             <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"></path>
@@ -90,7 +90,7 @@
                         </svg>
                     </button>
                 </div>
-                <button id="manual-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg">
+                <button id="manual-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-100 font-semibold py-2 px-4 rounded-lg">
                     Enter Manually
                 </button>
             </div>
@@ -98,11 +98,11 @@
             <!-- Manual Input -->
             <div id="step-manual" class="step-view hidden">
                 <p class="text-center mb-4">Paste the data:</p>
-                <textarea id="manual-input" class="w-full h-32 p-2 border rounded text-xs font-mono" placeholder="Paste here..."></textarea>
-                <button id="process-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg mt-2">
+                <textarea id="manual-input" class="w-full h-32 p-2 border border-gray-600 bg-gray-700 text-gray-100 rounded text-xs font-mono" placeholder="Paste here..."></textarea>
+                <button id="process-btn" class="w-full bg-blue-700 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg mt-2">
                     Process
                 </button>
-                <button id="back-scan-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg mt-2">
+                <button id="back-scan-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-100 font-semibold py-2 px-4 rounded-lg mt-2">
                     Back to Scanner
                 </button>
             </div>
@@ -110,38 +110,38 @@
             <!-- Connected -->
             <div id="step-connected" class="step-view hidden">
                 <div class="text-center">
-                    <svg class="w-16 h-16 text-green-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <h2 class="text-xl font-semibold text-gray-800 mb-2">Connected!</h2>
+                    <h2 class="text-xl font-semibold text-gray-100 mb-2">Connected!</h2>
                     
                     <!-- Network Diagnostics -->
-                    <div id="network-diagnostics" class="mb-4 p-3 bg-gray-100 rounded-lg text-sm text-left">
+                    <div id="network-diagnostics" class="mb-4 p-3 bg-gray-700 rounded-lg text-sm text-left">
                         <div class="font-semibold mb-2 flex items-center justify-between">
                             <span>Network Information</span>
-                            <button id="refresh-diagnostics" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded">
+                            <button id="refresh-diagnostics" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-2 py-1 rounded">
                                 Refresh
                             </button>
                         </div>
                         <div id="diagnostics-content" class="text-xs space-y-1">
                             <div class="flex justify-between">
-                                <span class="text-gray-600">Analyzing connection...</span>
+                                <span class="text-gray-400">Analyzing connection...</span>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Tab buttons -->
                     <div class="flex mb-4 border-b">
-                        <button id="chat-tab" class="flex-1 py-2 px-4 border-b-2 border-blue-600 text-blue-600 font-semibold">Chat</button>
-                        <button id="canvas-tab" class="flex-1 py-2 px-4 border-b-2 border-transparent hover:border-gray-300">Shared Canvas</button>
+                        <button id="chat-tab" class="flex-1 py-2 px-4 border-b-2 border-blue-500 text-blue-400 font-semibold">Chat</button>
+                        <button id="canvas-tab" class="flex-1 py-2 px-4 border-b-2 border-transparent hover:border-gray-600 text-gray-300">Shared Canvas</button>
                     </div>
                     
                     <!-- Chat View -->
                     <div id="chat-view" class="tab-content">
-                        <div id="messages" class="h-40 overflow-y-auto bg-gray-100 rounded p-3 mb-4 text-sm text-left"></div>
+                        <div id="messages" class="h-40 overflow-y-auto bg-gray-700 rounded p-3 mb-4 text-sm text-left"></div>
                         <div class="flex gap-2">
-                            <input id="msg-input" type="text" class="flex-1 p-2 border rounded" placeholder="Type a message...">
-                            <button id="send-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
+                            <input id="msg-input" type="text" class="flex-1 p-2 border border-gray-600 bg-gray-700 text-gray-100 rounded" placeholder="Type a message...">
+                            <button id="send-btn" class="bg-blue-700 hover:bg-blue-600 text-white px-4 py-2 rounded">Send</button>
                         </div>
                     </div>
                     
@@ -153,11 +153,11 @@
                                 <button id="color-red" class="w-8 h-8 bg-red-500 rounded border-2 border-gray-300" data-color="#ef4444"></button>
                                 <button id="color-blue" class="w-8 h-8 bg-blue-500 rounded border-2 border-gray-300" data-color="#3b82f6"></button>
                                 <button id="color-green" class="w-8 h-8 bg-green-500 rounded border-2 border-gray-300" data-color="#10b981"></button>
-                                <button id="clear-canvas" class="px-3 py-1 bg-gray-200 rounded text-sm">Clear</button>
+                                <button id="clear-canvas" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-gray-100 rounded text-sm">Clear</button>
                             </div>
                         </div>
-                        <canvas id="shared-canvas" class="border border-gray-300 rounded bg-white cursor-crosshair" width="400" height="300"></canvas>
-                        <p class="text-xs text-gray-500 mt-2">Draw on the canvas - changes sync in real-time!</p>
+                        <canvas id="shared-canvas" class="border border-gray-600 rounded bg-white cursor-crosshair" width="400" height="300"></canvas>
+                        <p class="text-xs text-gray-400 mt-2">Draw on the canvas - changes sync in real-time!</p>
                     </div>
                 </div>
             </div>
