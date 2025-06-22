@@ -1064,26 +1064,6 @@
         }
         
         // Event listeners - removed device buttons since we auto-start
-                // Show split view with QR and camera
-                if (state.lastQRData) {
-                    const qrDiv = document.getElementById('qr-display-split');
-                    qrDiv.innerHTML = '';
-                    new QRCode(qrDiv, {
-                        text: state.lastQRData,
-                        width: 240,
-                        height: 240,
-                        correctLevel: QRCode.CorrectLevel.L
-                    });
-                }
-                
-                state.scanTarget = 'answer';
-                showStep('device1-split');
-                startScannerSplit();
-                updateStatus('Show QR to Device 2 & scan their response');
-            } else {
-                showStep('connected');
-            }
-        });
         
         document.getElementById('manual-btn').addEventListener('click', () => {
             stopCamera();
