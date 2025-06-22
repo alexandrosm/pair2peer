@@ -16,6 +16,10 @@ const versionFile = './version.js';
 let versionContent = readFileSync(versionFile, 'utf8');
 versionContent = versionContent.replace(/VERSION = '[\d.]+'/g, `VERSION = '${version}'`);
 
+// Update build date with static timestamp
+const buildDate = new Date().toISOString();
+versionContent = versionContent.replace(/BUILD_DATE = '[^']+'/g, `BUILD_DATE = '${buildDate}'`);
+
 // Update git commit
 try {
     const gitCommit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();

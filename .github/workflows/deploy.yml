@@ -48,12 +48,13 @@ jobs:
           # Update package.json
           npm version ${{ steps.gitversion.outputs.semVer }} --no-git-tag-version --allow-same-version
           
-          # Update version.js
+          # Update version.js with static build date
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           cat > version.js << EOF
           // Centralized version configuration
           export const VERSION = '${{ steps.gitversion.outputs.semVer }}';
-          export const BUILD_DATE = new Date().toISOString();
-          export const GIT_COMMIT = '${{ steps.gitversion.outputs.shortSha }}';
+          export const BUILD_DATE = '${BUILD_DATE}'; // Updated by CI/CD
+          export const GIT_COMMIT = '${{ steps.gitversion.outputs.shortSha }}'; // Updated by CI/CD
           
           // Version string for cache busting
           export const CACHE_VERSION = VERSION;
