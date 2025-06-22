@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="version" content="2.0.9">
+    <meta name="version" content="2.1.0">
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <!-- Using Tailwind CDN for rapid prototyping. For production, consider building CSS -->
@@ -711,14 +711,28 @@
                     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
                 });
                 
-                // Setup connection event handlers
+                // Setup connection event handlers with reconnection support
                 state.pc.oniceconnectionstatechange = () => {
                     console.log('ICE connection state:', state.pc.iceConnectionState);
-                    if (state.pc.iceConnectionState === 'connected' || state.pc.iceConnectionState === 'completed') {
+                    const iceState = state.pc.iceConnectionState;
+                    
+                    if (iceState === 'connected' || iceState === 'completed') {
                         showStep('connected');
                         updateStatus('Connected!', 'success');
-                    } else if (state.pc.iceConnectionState === 'failed') {
-                        updateStatus('Connection failed', 'error');
+                        state.connectionEstablished = true;
+                        // Store last known good connection data
+                        state.lastOfferData = state.lastData;
+                    } else if (iceState === 'disconnected') {
+                        updateStatus('Connection interrupted - attempting to reconnect...', 'warning');
+                        // Give it a few seconds to recover naturally
+                        setTimeout(() => {
+                            if (state.pc && state.pc.iceConnectionState === 'disconnected') {
+                                attemptReconnection();
+                            }
+                        }, 3000);
+                    } else if (iceState === 'failed') {
+                        updateStatus('Connection failed - attempting to reconnect...', 'error');
+                        attemptReconnection();
                     }
                 };
                 
@@ -1042,6 +1056,44 @@
                 state.stream = null;
             }
         }
+        
+        // Reconnection logic for network changes
+        async function attemptReconnection() {
+            if (state.reconnecting) return; // Avoid multiple reconnection attempts
+            state.reconnecting = true;
+            
+            console.log('Attempting to reconnect...');
+            updateStatus('Reconnecting...', 'warning');
+            
+            try {
+                // Close existing connection
+                if (state.pc) {
+                    state.pc.close();
+                }
+                
+                // If we have stored connection data, try to re-establish
+                if (state.lastOfferData || state.preGeneratedOffer) {
+                    // Restart the unified flow
+                    await startUnified('auto');
+                } else {
+                    // No stored data, need to reload
+                    updateStatus('Connection lost - click to reload', 'error');
+                    document.getElementById('status').onclick = () => {
+                        location.reload();
+                    };
+                    document.getElementById('status').style.cursor = 'pointer';
+                }
+            } catch (error) {
+                console.error('Reconnection failed:', error);
+                updateStatus('Reconnection failed - click to reload', 'error');
+                document.getElementById('status').onclick = () => {
+                    location.reload();
+                };
+                document.getElementById('status').style.cursor = 'pointer';
+            } finally {
+                state.reconnecting = false;
+            }
+        }
 
         // New unified start function for both devices
         async function startUnified(deviceRole) {
@@ -1054,14 +1106,28 @@
                     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
                 });
                 
-                // Setup connection event handlers
+                // Setup connection event handlers with reconnection support
                 state.pc.oniceconnectionstatechange = () => {
                     console.log('ICE connection state:', state.pc.iceConnectionState);
-                    if (state.pc.iceConnectionState === 'connected' || state.pc.iceConnectionState === 'completed') {
+                    const iceState = state.pc.iceConnectionState;
+                    
+                    if (iceState === 'connected' || iceState === 'completed') {
                         showStep('connected');
                         updateStatus('Connected!', 'success');
-                    } else if (state.pc.iceConnectionState === 'failed') {
-                        updateStatus('Connection failed', 'error');
+                        state.connectionEstablished = true;
+                        // Store last known good connection data
+                        state.lastOfferData = state.lastData;
+                    } else if (iceState === 'disconnected') {
+                        updateStatus('Connection interrupted - attempting to reconnect...', 'warning');
+                        // Give it a few seconds to recover naturally
+                        setTimeout(() => {
+                            if (state.pc && state.pc.iceConnectionState === 'disconnected') {
+                                attemptReconnection();
+                            }
+                        }, 3000);
+                    } else if (iceState === 'failed') {
+                        updateStatus('Connection failed - attempting to reconnect...', 'error');
+                        attemptReconnection();
                     }
                 };
                 
@@ -1238,6 +1304,20 @@
             // DOM is already loaded
             autoStart();
         }
+        
+        // Monitor network changes
+        window.addEventListener('online', () => {
+            console.log('Network connection restored');
+            if (state.connectionEstablished && state.pc && 
+                (state.pc.iceConnectionState === 'disconnected' || state.pc.iceConnectionState === 'failed')) {
+                attemptReconnection();
+            }
+        });
+        
+        window.addEventListener('offline', () => {
+            console.log('Network connection lost');
+            updateStatus('Network offline', 'error');
+        });
         
         // Self-test function
         async function runSelfTest() {
