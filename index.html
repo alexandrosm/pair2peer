@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="version" content="2.0.8">
+    <meta name="version" content="2.0.9">
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <!-- Using Tailwind CDN for rapid prototyping. For production, consider building CSS -->
@@ -269,32 +269,48 @@
         
         // Register service worker for offline support and updates
         if ('serviceWorker' in navigator) {
+            // Unregister any existing service workers first to ensure clean update
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                const oldWorkers = registrations.filter(reg => 
+                    reg.scope === location.origin + '/pair2peer/' && 
+                    reg.active && 
+                    !reg.active.scriptURL.includes('v=')
+                );
+                
+                if (oldWorkers.length > 0) {
+                    console.log('Found old service workers, updating...');
+                }
+            });
+            
             navigator.serviceWorker.register('./sw.js')
                 .then(registration => {
                     console.log('Service Worker registered:', registration.scope);
                     
-                    // Check for updates every 30 seconds
-                    setInterval(() => {
-                        registration.update();
-                    }, 30000);
+                    // Check for updates on visibility change
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden) {
+                            registration.update().catch(() => {});
+                        }
+                    });
                     
                     // Listen for updates
                     registration.addEventListener('updatefound', () => {
                         const newWorker = registration.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                // New version available
-                                console.log('New version available!');
-                                if (confirm('A new version is available! Reload to update?')) {
+                        if (newWorker) {
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New version available
+                                    console.log('New version available - reloading...');
                                     newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                    window.location.reload();
+                                    setTimeout(() => window.location.reload(), 100);
                                 }
-                            }
-                        });
+                            });
+                        }
                     });
                 })
                 .catch(error => {
                     console.error('Service Worker registration failed:', error);
+                    // Continue without service worker
                 });
                 
             // Listen for controller change

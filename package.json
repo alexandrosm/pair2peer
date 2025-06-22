@@ -1,6 +1,6 @@
 {
   "name": "pair2peer",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "description": "Pair2Peer - Direct device pairing web app using QR codes and WebRTC",
   "type": "module",
   "scripts": {
