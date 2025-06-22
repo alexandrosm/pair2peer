@@ -1,5 +1,5 @@
 // Centralized version configuration
-export const VERSION = '2.0.4';
+export const VERSION = '2.0.5';
 export const BUILD_DATE = new Date().toISOString();
 export const GIT_COMMIT = 'camera-fix'; // Updated by CI/CD
 
