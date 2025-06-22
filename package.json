@@ -15,7 +15,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "version:update": "node update-version.js"
+    "version:sync": "node update-version.js",
+    "preversion": "npm run version:sync",
+    "postversion": "npm run version:sync && git add -A"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.5",

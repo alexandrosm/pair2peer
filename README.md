@@ -56,3 +56,27 @@ For offline use, serve the files over HTTPS to enable PWA installation.
 - PairCode prevents accidental cross-pairing
 - SDP fingerprint verification prevents MITM attacks
 - Optional TURN credentials can be embedded in QR payload
+
+## Development
+
+### Version Management
+
+The version is maintained in `package.json` as the single source of truth. Use npm's version commands:
+
+```bash
+# Bump patch version (e.g., 2.2.0 -> 2.2.1)
+npm version patch
+
+# Bump minor version (e.g., 2.2.0 -> 2.3.0)
+npm version minor
+
+# Bump major version (e.g., 2.2.0 -> 3.0.0)
+npm version major
+```
+
+The `version:sync` script automatically updates the version in:
+- `version.js` - Used by the app
+- `sw.js` - Service worker cache version
+- `index.html` - Meta tag
+
+This runs automatically when you use `npm version`.

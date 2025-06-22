@@ -1,29 +1,20 @@
 #!/usr/bin/env node
 
-// Script to update version number across the project
+// Script to sync version from package.json to all other files
 import { readFileSync, writeFileSync } from 'fs';
 import { execSync } from 'child_process';
 
-const newVersion = process.argv[2];
+// Read version from package.json (single source of truth)
+const packageFile = './package.json';
+const packageJson = JSON.parse(readFileSync(packageFile, 'utf8'));
+const version = packageJson.version;
 
-if (!newVersion) {
-    console.error('Usage: node update-version.js <version>');
-    console.error('Example: node update-version.js 1.4.1');
-    process.exit(1);
-}
-
-// Validate version format
-if (!/^\d+\.\d+\.\d+$/.test(newVersion)) {
-    console.error('Version must be in format X.Y.Z');
-    process.exit(1);
-}
-
-console.log(`Updating version to ${newVersion}...`);
+console.log(`Syncing version ${version} from package.json to all files...`);
 
 // Update version.js
 const versionFile = './version.js';
 let versionContent = readFileSync(versionFile, 'utf8');
-versionContent = versionContent.replace(/VERSION = '[\d.]+'/g, `VERSION = '${newVersion}'`);
+versionContent = versionContent.replace(/VERSION = '[\d.]+'/g, `VERSION = '${version}'`);
 
 // Update git commit
 try {
@@ -36,12 +27,19 @@ try {
 writeFileSync(versionFile, versionContent);
 console.log('✓ Updated version.js');
 
-// Update package.json
-const packageFile = './package.json';
-const packageJson = JSON.parse(readFileSync(packageFile, 'utf8'));
-packageJson.version = newVersion;
-writeFileSync(packageFile, JSON.stringify(packageJson, null, 2) + '\n');
-console.log('✓ Updated package.json');
+// Update sw.js
+const swFile = './sw.js';
+let swContent = readFileSync(swFile, 'utf8');
+swContent = swContent.replace(/const CACHE_VERSION = '[\d.]+'/g, `const CACHE_VERSION = '${version}'`);
+writeFileSync(swFile, swContent);
+console.log('✓ Updated sw.js');
 
-console.log(`\nVersion updated to ${newVersion}`);
-console.log('Run "git add -A && git commit -m "Bump version to ' + newVersion + '"" to commit the changes');
+// Update index.html meta tag
+const htmlFile = './index.html';
+let htmlContent = readFileSync(htmlFile, 'utf8');
+htmlContent = htmlContent.replace(/<meta name="version" content="[\d.]+"/g, `<meta name="version" content="${version}"`);
+writeFileSync(htmlFile, htmlContent);
+console.log('✓ Updated index.html meta tag');
+
+console.log(`\nAll files synced to version ${version} from package.json`);
+console.log('To change version: npm version patch/minor/major');
