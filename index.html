@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="version" content="2.0.7">
+    <meta name="version" content="2.0.8">
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <!-- Using Tailwind CDN for rapid prototyping. For production, consider building CSS -->
@@ -708,10 +708,12 @@
                 
                 // Set remote description
                 const expandedSDP = expandSDP(data, 'offer');
+                console.log('Setting remote description with expanded SDP');
                 await state.pc.setRemoteDescription({
                     type: 'offer',
                     sdp: expandedSDP
                 });
+                console.log('Remote description set successfully');
                 
                 // Setup data channel handler for incoming channel
                 state.pc.ondatachannel = (event) => {
@@ -720,6 +722,7 @@
                     setupDataChannel();
                 };
                 
+                console.log('Creating answer...');
                 // Create answer
                 const answer = await state.pc.createAnswer();
                 await state.pc.setLocalDescription(answer);
@@ -759,7 +762,8 @@
                 
             } catch (error) {
                 console.error('processScannedOffer error:', error);
-                updateStatus('Error: ' + error.message, 'error');
+                console.error('Error details:', error.stack || error.toString());
+                updateStatus('Error: ' + (error.message || error.toString() || 'Unknown error'), 'error');
             }
         }
 
