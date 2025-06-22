@@ -883,6 +883,7 @@
                 }
                 
                 updateStatus('Answer generated - show QR to other device');
+                console.log('Device 2: Answer QR shown, camera should still be running for Device 1 to scan');
                 
             } catch (error) {
                 console.error('processScannedOffer error:', error);
@@ -1480,17 +1481,26 @@
                                     return;
                                 }
                                 
-                                stopCamera();
-                                if (decompressed.t === 'o') {
-                                    // We scanned an offer
-                                    processScannedOffer(code.data);
-                                } else if (decompressed.t === 'a') {
-                                    // We scanned an answer
-                                    processAnswer(code.data);
+                                // Only stop camera if we're scanning an answer (final step)
+                                // Keep camera running after scanning offer so Device 1 can scan our answer
+                                if (decompressed.t === 'a') {
+                                    stopCamera();
                                 }
+                                
+                                if (decompressed.t === 'o') {
+                                    // We scanned an offer - keep camera running for Device 1 to scan our answer
+                                    processScannedOffer(code.data);
+                                    // Don't return - let scanning continue
+                                    scanning = false;
+                                } else if (decompressed.t === 'a') {
+                                    // We scanned an answer - connection complete
+                                    processAnswer(code.data);
+                                    scanning = false;
+                                    return;
+                                }
+                            } else {
+                                scanning = false;
                             }
-                            scanning = false;
-                            return;
                         }
                         scanning = false;
                     }
@@ -1514,8 +1524,16 @@
         }
 
         function stopCamera() {
+            console.log('stopCamera called - current state:', {
+                role: state.role,
+                hasStream: !!state.stream,
+                connectionState: state.pc?.connectionState
+            });
             if (state.stream) {
-                state.stream.getTracks().forEach(t => t.stop());
+                state.stream.getTracks().forEach(t => {
+                    console.log('Stopping track:', t.kind, t.label);
+                    t.stop();
+                });
                 state.stream = null;
             }
         }
