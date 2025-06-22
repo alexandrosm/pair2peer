@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="version" content="2.1.0">
+    <meta name="version" content="2.2.0">
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <!-- Using Tailwind CDN for rapid prototyping. For production, consider building CSS -->
@@ -114,6 +114,21 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <h2 class="text-xl font-semibold text-gray-800 mb-2">Connected!</h2>
+                    
+                    <!-- Network Diagnostics -->
+                    <div id="network-diagnostics" class="mb-4 p-3 bg-gray-100 rounded-lg text-sm text-left">
+                        <div class="font-semibold mb-2 flex items-center justify-between">
+                            <span>Network Information</span>
+                            <button id="refresh-diagnostics" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded">
+                                Refresh
+                            </button>
+                        </div>
+                        <div id="diagnostics-content" class="text-xs space-y-1">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Analyzing connection...</span>
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- Tab buttons -->
                     <div class="flex mb-4 border-b">
@@ -463,6 +478,20 @@
                     console.log('ICE connection state:', state.pc.iceConnectionState);
                 };
                 
+                // Log ICE candidates as they are gathered
+                state.pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        const cand = event.candidate;
+                        console.log('ICE candidate gathered:', {
+                            type: cand.type,
+                            address: cand.address,
+                            port: cand.port,
+                            protocol: cand.protocol,
+                            candidateType: cand.candidateType
+                        });
+                    }
+                };
+                
                 state.dc = state.pc.createDataChannel('chat', {
                     ordered: true,
                     maxRetransmits: 3
@@ -578,6 +607,20 @@
                 
                 state.pc.oniceconnectionstatechange = () => {
                     console.log('Device 2 - ICE connection state:', state.pc.iceConnectionState);
+                };
+                
+                // Log ICE candidates as they are gathered
+                state.pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        const cand = event.candidate;
+                        console.log('Device 2 - ICE candidate gathered:', {
+                            type: cand.type,
+                            address: cand.address,
+                            port: cand.port,
+                            protocol: cand.protocol,
+                            candidateType: cand.candidateType
+                        });
+                    }
                 };
                 
                 state.pc.ondatachannel = (event) => {
@@ -722,6 +765,10 @@
                         state.connectionEstablished = true;
                         // Store last known good connection data
                         state.lastOfferData = state.lastData;
+                        // Run diagnostics after connection is established
+                        setTimeout(() => {
+                            runNetworkDiagnostics();
+                        }, 1000); // Wait a bit for stats to be available
                     } else if (iceState === 'disconnected') {
                         updateStatus('Connection interrupted - attempting to reconnect...', 'warning');
                         // Give it a few seconds to recover naturally
@@ -888,6 +935,9 @@
                 
                 // Initialize shared state
                 initializeSharedState();
+                
+                // Run network diagnostics
+                runNetworkDiagnostics();
             }
         }
         
@@ -898,6 +948,305 @@
             if (state.role === 'device2' && state.dc && state.dc.readyState === 'open') {
                 state.dc.send(JSON.stringify({ type: 'request-state' }));
             }
+        }
+        
+        // Network Diagnostics Functions
+        async function runNetworkDiagnostics() {
+            console.log('Running network diagnostics...');
+            
+            if (!state.pc) {
+                console.error('No peer connection available for diagnostics');
+                return;
+            }
+            
+            const diagnostics = {
+                localCandidates: [],
+                remoteCandidates: [],
+                selectedPair: null,
+                connectionType: 'Unknown',
+                vpnDetected: false,
+                sameLAN: false,
+                networkTypes: {
+                    local: 'Unknown',
+                    remote: 'Unknown'
+                },
+                latency: null
+            };
+            
+            try {
+                // Get ICE candidates
+                const stats = await state.pc.getStats();
+                const candidates = {
+                    local: [],
+                    remote: []
+                };
+                
+                stats.forEach(stat => {
+                    if (stat.type === 'local-candidate') {
+                        candidates.local.push(stat);
+                    } else if (stat.type === 'remote-candidate') {
+                        candidates.remote.push(stat);
+                    } else if (stat.type === 'candidate-pair' && stat.state === 'succeeded') {
+                        diagnostics.selectedPair = stat;
+                    }
+                });
+                
+                // Analyze local candidates
+                candidates.local.forEach(candidate => {
+                    const ip = candidate.address || candidate.ip;
+                    if (ip) {
+                        diagnostics.localCandidates.push({
+                            ip: ip,
+                            port: candidate.port,
+                            protocol: candidate.protocol,
+                            type: candidate.candidateType,
+                            networkType: detectNetworkType(ip)
+                        });
+                    }
+                });
+                
+                // Analyze remote candidates
+                candidates.remote.forEach(candidate => {
+                    const ip = candidate.address || candidate.ip;
+                    if (ip) {
+                        diagnostics.remoteCandidates.push({
+                            ip: ip,
+                            port: candidate.port,
+                            protocol: candidate.protocol,
+                            type: candidate.candidateType,
+                            networkType: detectNetworkType(ip)
+                        });
+                    }
+                });
+                
+                // Detect VPN
+                diagnostics.vpnDetected = detectVPN(diagnostics.localCandidates);
+                
+                // Detect same LAN
+                diagnostics.sameLAN = detectSameLAN(diagnostics.localCandidates, diagnostics.remoteCandidates);
+                
+                // Determine network types
+                diagnostics.networkTypes.local = determineOverallNetworkType(diagnostics.localCandidates);
+                diagnostics.networkTypes.remote = determineOverallNetworkType(diagnostics.remoteCandidates);
+                
+                // Get connection type from selected pair
+                if (diagnostics.selectedPair) {
+                    const localCandidate = candidates.local.find(c => c.id === diagnostics.selectedPair.localCandidateId);
+                    const remoteCandidate = candidates.remote.find(c => c.id === diagnostics.selectedPair.remoteCandidateId);
+                    
+                    if (localCandidate && remoteCandidate) {
+                        diagnostics.connectionType = getConnectionType(localCandidate, remoteCandidate);
+                    }
+                    
+                    // Get latency if available
+                    if (diagnostics.selectedPair.currentRoundTripTime) {
+                        diagnostics.latency = Math.round(diagnostics.selectedPair.currentRoundTripTime * 1000);
+                    }
+                }
+                
+                // Update UI with diagnostics
+                updateDiagnosticsUI(diagnostics);
+                
+            } catch (error) {
+                console.error('Network diagnostics error:', error);
+                document.getElementById('diagnostics-content').innerHTML = 
+                    '<div class="text-red-600">Error running diagnostics</div>';
+            }
+        }
+        
+        function detectNetworkType(ip) {
+            if (!ip) return 'Unknown';
+            
+            // Check for IPv6
+            if (ip.includes(':')) {
+                return 'IPv6';
+            }
+            
+            // Parse IPv4
+            const parts = ip.split('.');
+            if (parts.length !== 4) return 'Unknown';
+            
+            const first = parseInt(parts[0]);
+            const second = parseInt(parts[1]);
+            
+            // Localhost
+            if (ip === '127.0.0.1' || ip === '0.0.0.0') {
+                return 'Localhost';
+            }
+            
+            // Private networks
+            if (first === 10) {
+                return 'Private (10.x.x.x)';
+            }
+            if (first === 172 && second >= 16 && second <= 31) {
+                return 'Private (172.16-31.x.x)';
+            }
+            if (first === 192 && second === 168) {
+                return 'Private (192.168.x.x)';
+            }
+            
+            // VPN/Special ranges
+            if (first === 192 && second === 0 && parts[2] === '0') {
+                return 'VPN/Special (192.0.0.x)';
+            }
+            
+            // Carrier-grade NAT
+            if (first === 100 && second >= 64 && second <= 127) {
+                return 'Carrier NAT (100.64-127.x.x)';
+            }
+            
+            // Link-local
+            if (first === 169 && second === 254) {
+                return 'Link-Local (169.254.x.x)';
+            }
+            
+            return 'Public';
+        }
+        
+        function detectVPN(candidates) {
+            // Check for VPN indicators
+            for (const candidate of candidates) {
+                if (candidate.networkType === 'VPN/Special (192.0.0.x)') {
+                    return true;
+                }
+                // Check for common VPN ranges
+                if (candidate.ip && (
+                    candidate.ip.startsWith('10.8.') ||  // OpenVPN default
+                    candidate.ip.startsWith('10.9.') ||  // OpenVPN
+                    candidate.ip.startsWith('172.27.') || // Some VPNs
+                    candidate.ip.startsWith('172.28.') || // Some VPNs
+                    candidate.ip.startsWith('172.29.') || // Some VPNs
+                    candidate.ip.startsWith('172.30.') || // Some VPNs
+                    candidate.ip.startsWith('172.31.')    // Some VPNs
+                )) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        function detectSameLAN(localCandidates, remoteCandidates) {
+            // Check if any local and remote candidates share the same private network
+            for (const local of localCandidates) {
+                for (const remote of remoteCandidates) {
+                    if (local.ip && remote.ip && 
+                        local.networkType.includes('Private') && 
+                        remote.networkType.includes('Private')) {
+                        
+                        // Check if same subnet
+                        const localParts = local.ip.split('.');
+                        const remoteParts = remote.ip.split('.');
+                        
+                        if (localParts[0] === remoteParts[0] && 
+                            localParts[1] === remoteParts[1] && 
+                            localParts[2] === remoteParts[2]) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+        
+        function determineOverallNetworkType(candidates) {
+            // Determine if connection is cellular, WiFi, or wired based on candidates
+            const hasPublic = candidates.some(c => c.networkType === 'Public');
+            const hasCarrierNAT = candidates.some(c => c.networkType.includes('Carrier NAT'));
+            const hasPrivate = candidates.some(c => c.networkType.includes('Private'));
+            const hasIPv6 = candidates.some(c => c.networkType === 'IPv6');
+            
+            if (hasCarrierNAT) {
+                return 'Cellular (Carrier NAT)';
+            } else if (hasPublic && !hasPrivate) {
+                return 'Direct Internet (No NAT)';
+            } else if (hasPrivate) {
+                return 'WiFi/Ethernet (NAT)';
+            } else if (hasIPv6) {
+                return 'IPv6 Network';
+            }
+            
+            return 'Unknown';
+        }
+        
+        function getConnectionType(localCandidate, remoteCandidate) {
+            const localType = localCandidate.candidateType;
+            const remoteType = remoteCandidate.candidateType;
+            
+            if (localType === 'host' && remoteType === 'host') {
+                return 'Direct (P2P)';
+            } else if (localType === 'srflx' || remoteType === 'srflx') {
+                return 'STUN (NAT traversal)';
+            } else if (localType === 'relay' || remoteType === 'relay') {
+                return 'TURN (Relayed)';
+            }
+            
+            return `${localType} ↔ ${remoteType}`;
+        }
+        
+        function updateDiagnosticsUI(diagnostics) {
+            const content = document.getElementById('diagnostics-content');
+            
+            let html = '';
+            
+            // Connection type and latency
+            html += `<div class="flex justify-between">
+                <span class="text-gray-600">Connection Type:</span>
+                <span class="font-medium">${diagnostics.connectionType}</span>
+            </div>`;
+            
+            if (diagnostics.latency !== null) {
+                html += `<div class="flex justify-between">
+                    <span class="text-gray-600">Latency:</span>
+                    <span class="font-medium">${diagnostics.latency}ms</span>
+                </div>`;
+            }
+            
+            // Network types
+            html += `<div class="flex justify-between">
+                <span class="text-gray-600">Your Network:</span>
+                <span class="font-medium">${diagnostics.networkTypes.local}</span>
+            </div>`;
+            
+            html += `<div class="flex justify-between">
+                <span class="text-gray-600">Their Network:</span>
+                <span class="font-medium">${diagnostics.networkTypes.remote}</span>
+            </div>`;
+            
+            // VPN detection
+            if (diagnostics.vpnDetected) {
+                html += `<div class="flex justify-between">
+                    <span class="text-gray-600">VPN Detected:</span>
+                    <span class="font-medium text-orange-600">Yes</span>
+                </div>`;
+            }
+            
+            // Same LAN
+            if (diagnostics.sameLAN) {
+                html += `<div class="flex justify-between">
+                    <span class="text-gray-600">Same Network:</span>
+                    <span class="font-medium text-green-600">Yes (LAN)</span>
+                </div>`;
+            }
+            
+            // Local IPs
+            if (diagnostics.localCandidates.length > 0) {
+                const uniqueIPs = [...new Set(diagnostics.localCandidates.map(c => c.ip))].filter(ip => ip);
+                html += `<div class="mt-2 pt-2 border-t border-gray-200">
+                    <div class="text-gray-600 mb-1">Your IPs:</div>
+                    ${uniqueIPs.map(ip => `<div class="ml-2 text-xs">${ip}</div>`).join('')}
+                </div>`;
+            }
+            
+            // Remote IPs
+            if (diagnostics.remoteCandidates.length > 0) {
+                const uniqueIPs = [...new Set(diagnostics.remoteCandidates.map(c => c.ip))].filter(ip => ip);
+                html += `<div class="mt-2 pt-2 border-t border-gray-200">
+                    <div class="text-gray-600 mb-1">Their IPs:</div>
+                    ${uniqueIPs.map(ip => `<div class="ml-2 text-xs">${ip}</div>`).join('')}
+                </div>`;
+            }
+            
+            content.innerHTML = html;
         }
         
         function handleSharedStateMessage(msg) {
@@ -1117,6 +1466,10 @@
                         state.connectionEstablished = true;
                         // Store last known good connection data
                         state.lastOfferData = state.lastData;
+                        // Run diagnostics after connection is established
+                        setTimeout(() => {
+                            runNetworkDiagnostics();
+                        }, 1000); // Wait a bit for stats to be available
                     } else if (iceState === 'disconnected') {
                         updateStatus('Connection interrupted - attempting to reconnect...', 'warning');
                         // Give it a few seconds to recover naturally
@@ -1537,6 +1890,12 @@
         
         // Add event listeners (only add selftest, others already exist)
         document.getElementById('selftest-btn').addEventListener('click', runSelfTest);
+        
+        // Refresh diagnostics button
+        document.getElementById('refresh-diagnostics').addEventListener('click', () => {
+            console.log('Refreshing network diagnostics...');
+            runNetworkDiagnostics();
+        });
         
         // Debug toggle button
         document.getElementById('debug-toggle').addEventListener('click', () => {
