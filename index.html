@@ -39,7 +39,7 @@
                 <div class="text-center mb-3">
                     <h1 class="text-2xl font-bold">Pair2Peer</h1>
                     <p class="text-xs text-gray-400" id="version-display-split">Loading...</p>
-                    <p class="text-sm text-gray-400 mt-2">Show your QR</p>
+                    <p class="text-sm text-gray-400 mt-2" id="qr-type-label">Show your QR</p>
                     <div id="status" class="mt-2 p-2 rounded-lg bg-blue-900 text-blue-100 text-center text-sm">
                         Starting camera...
                     </div>
@@ -576,6 +576,9 @@
                 console.log('Compressed offer:', compressed);
                 console.log('Compressed length:', compressed.length);
                 
+                // Store current QR data for self-scan prevention
+                state.currentQRData = compressed;
+                
                 // Test decode immediately
                 const testDecode = decompressData(compressed);
                 console.log('Test decode result:', testDecode);
@@ -722,6 +725,8 @@
                 
                 // Compress and show
                 const compressed = compressData(answerData);
+                // Store current QR data for self-scan prevention
+                state.currentQRData = compressed;
                 showQR(compressed, 'Step 2: Show to Device 1');
                 
             } catch (error) {
@@ -856,6 +861,9 @@
                 
                 // Update our QR to show the answer
                 const compressed = compressData(answerData);
+                // Store current QR data for self-scan prevention
+                state.currentQRData = compressed;
+                
                 const qrDiv = document.getElementById('qr-display-split');
                 qrDiv.innerHTML = '';
                 new QRCode(qrDiv, {
@@ -866,6 +874,13 @@
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#1f2937'  // Dark gray background (matches bg-gray-800)
                 });
+                
+                // Update QR type label for answer
+                const qrLabel = document.getElementById('qr-type-label');
+                if (qrLabel) {
+                    qrLabel.textContent = '📥 Answer QR (Device 2)';
+                    qrLabel.className = 'text-sm font-semibold text-green-400 mt-2';
+                }
                 
                 updateStatus('Answer generated - show QR to other device');
                 
@@ -1363,6 +1378,12 @@
                         })
                         
                         if (code) {
+                            // Check if this is our own QR code (self-scan prevention)
+                            if (state.currentQRData && code.data === state.currentQRData) {
+                                console.log('Ignoring self-scan in simple scanner');
+                                return;
+                            }
+                            
                             stopCamera();
                             if (state.scanTarget === 'offer') {
                                 processOffer(code.data);
@@ -1437,9 +1458,28 @@
                             console.log('QR code detected:', code.data.substring(0, 50) + '...');
                             console.log('QR code length:', code.data.length);
                             
+                            // Check if this is our own QR code (self-scan prevention)
+                            if (state.currentQRData && code.data === state.currentQRData) {
+                                console.log('Ignoring self-scan (detected our own QR code)');
+                                scanning = false;
+                                return;
+                            }
+                            
                             // Determine what type of data we scanned
                             const decompressed = decompressData(code.data);
                             if (decompressed) {
+                                // Additional self-scan check based on device role
+                                if (state.role === 'device1' && decompressed.t === 'o') {
+                                    console.log('Device 1 ignoring offer (we only scan answers)');
+                                    scanning = false;
+                                    return;
+                                }
+                                if (state.role === 'device2' && decompressed.t === 'a') {
+                                    console.log('Device 2 ignoring answer (we only scan offers)');
+                                    scanning = false;
+                                    return;
+                                }
+                                
                                 stopCamera();
                                 if (decompressed.t === 'o') {
                                     // We scanned an offer
@@ -1592,6 +1632,8 @@
                 state.lastData = offerData;
                 const compressed = compressData(offerData);
                 state.lastQRData = compressed;
+                // Store for self-scan prevention
+                state.currentQRData = compressed;
                 
                 // Show split view with QR and camera
                 const qrDiv = document.getElementById('qr-display-split');
@@ -1604,6 +1646,13 @@
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#1f2937'  // Dark gray background (matches bg-gray-800)
                 });
+                
+                // Update QR type label for offer
+                const qrLabel = document.getElementById('qr-type-label');
+                if (qrLabel) {
+                    qrLabel.textContent = '📤 Offer QR (Device 1)';
+                    qrLabel.className = 'text-sm font-semibold text-blue-400 mt-2';
+                }
                 
                 // Set scan target based on role
                 state.scanTarget = 'both'; // Accept both offers and answers
