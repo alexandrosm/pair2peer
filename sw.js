@@ -1,5 +1,5 @@
 // Service Worker for Pair2Peer
-const CACHE_VERSION = '2.2.2';
+const CACHE_VERSION = '2.2.3';
 const CACHE_NAME = `pair2peer-v${CACHE_VERSION}`;
 const urlsToCache = [
   './',

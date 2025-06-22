@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="version" content="2.2.2">
+    <meta name="version" content="2.2.3">
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <!-- Using Tailwind CDN for rapid prototyping. For production, consider building CSS -->
@@ -345,11 +345,26 @@
         console.log(`ASN.1 UPER codec: Direct binary output`);
         console.log('---');
         
+        // Helper function to format time ago
+        function timeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+            
+            if (seconds < 60) return `${seconds}s ago`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            return `${days}d ago`;
+        }
+        
         // Update version in UI
-        // Update version display if it exists (removed from main view)
-        const versionEl = document.getElementById('version-display');
-        if (versionEl) {
-            versionEl.textContent = `v${VERSION}`;
+        // Update version display in split view
+        const versionSplit = document.getElementById('version-display-split');
+        if (versionSplit) {
+            versionSplit.textContent = `v${VERSION} (${timeAgo(BUILD_DATE)})`;
         }
 
         // Compression utilities
@@ -1965,34 +1980,48 @@
             });
         }
         
-        // Debug toggle button
-        document.getElementById('debug-toggle').addEventListener('click', () => {
-            const toggle = document.getElementById('debug-toggle');
-            const options = document.getElementById('debug-options');
-            
-            if (options.classList.contains('hidden')) {
-                options.classList.remove('hidden');
-                toggle.textContent = '▼ Debug Options';
-            } else {
-                options.classList.add('hidden');
-                toggle.textContent = '▶ Debug Options';
+        // Debug toggle button (for both regular and split views)
+        const setupDebugToggle = (toggleId, optionsId) => {
+            const toggle = document.getElementById(toggleId);
+            const options = document.getElementById(optionsId);
+            if (toggle && options) {
+                toggle.addEventListener('click', () => {
+                    if (options.classList.contains('hidden')) {
+                        options.classList.remove('hidden');
+                        toggle.textContent = '▼ Debug';
+                    } else {
+                        options.classList.add('hidden');
+                        toggle.textContent = '▶ Debug';
+                    }
+                });
             }
-        });
+        };
         
-        // Toggle console button
-        document.getElementById('toggle-console').addEventListener('click', () => {
-            const panel = document.getElementById('debug-panel');
-            window.debugConsoleEnabled = !window.debugConsoleEnabled;
-            
-            if (window.debugConsoleEnabled) {
-                panel.classList.remove('hidden');
-            } else {
-                panel.classList.add('hidden');
+        setupDebugToggle('debug-toggle', 'debug-options');
+        setupDebugToggle('debug-toggle-split', 'debug-options-split');
+        
+        // Toggle console button (for both regular and split views)
+        const setupConsoleToggle = (btnId) => {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    const panel = document.getElementById('debug-panel');
+                    window.debugConsoleEnabled = !window.debugConsoleEnabled;
+                    
+                    if (window.debugConsoleEnabled) {
+                        panel.classList.remove('hidden');
+                    } else {
+                        panel.classList.add('hidden');
+                    }
+                });
             }
-        });
+        };
+        
+        setupConsoleToggle('toggle-console');
+        setupConsoleToggle('toggle-console-split');
         
         // Camera switch button
-        document.getElementById('switch-camera-btn').addEventListener('click', async () => {
+        addClickHandler('switch-camera-btn', async () => {
             // Toggle camera facing
             state.cameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
             console.log('Switching to', state.cameraFacing, 'camera');
@@ -2016,7 +2045,7 @@
         });
 
         // Camera switch button in split view
-        document.getElementById('switch-camera-split').addEventListener('click', async () => {
+        addClickHandler('switch-camera-split', async () => {
             // Toggle camera facing
             state.cameraFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
             console.log('Switching to', state.cameraFacing, 'camera in split view');
