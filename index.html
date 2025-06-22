@@ -1166,7 +1166,7 @@
         preGenerateOffer();
         
         // Auto-start immediately
-        window.addEventListener('DOMContentLoaded', async () => {
+        async function autoStart() {
             // Wait a bit longer for everything to initialize
             setTimeout(async () => {
                 try {
@@ -1182,7 +1182,15 @@
                     document.getElementById('status').style.cursor = 'pointer';
                 }
             }, 500);
-        });
+        }
+        
+        // Check if DOM is already loaded (common in modules)
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', autoStart);
+        } else {
+            // DOM is already loaded
+            autoStart();
+        }
         
         // Self-test function
         async function runSelfTest() {
