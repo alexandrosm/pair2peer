@@ -251,6 +251,11 @@
         };
         
         console.warn = function(...args) {
+            // Filter out known performance warnings
+            if (args[0] && typeof args[0] === 'string' && 
+                args[0].includes("'requestAnimationFrame' handler took")) {
+                return; // Skip these warnings
+            }
             originalConsole.warn.apply(console, args);
             window.addDebugLog(args.map(arg => 
                 typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
@@ -1354,8 +1359,23 @@
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 
+                let scanning = false;
+                let lastScanTime = 0;
+                const SCAN_THROTTLE = 100; // Minimum ms between scans
+                
                 const scan = () => {
+                    if (!state.stream || scanning) return;
+                    
+                    const now = Date.now();
+                    if (now - lastScanTime < SCAN_THROTTLE) {
+                        requestAnimationFrame(scan);
+                        return;
+                    }
+                    
                     if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        scanning = true;
+                        lastScanTime = now;
+                        
                         canvas.width = video.videoWidth;
                         canvas.height = video.videoHeight;
                         ctx.drawImage(video, 0, 0);
@@ -1379,8 +1399,10 @@
                                     processAnswer(code.data);
                                 }
                             }
+                            scanning = false;
                             return;
                         }
+                        scanning = false;
                     }
                     if (state.stream) requestAnimationFrame(scan);
                 };
