@@ -1,0 +1,17 @@
+{
+  "name": "Pair2Peer",
+  "short_name": "Pair2Peer",
+  "description": "Direct device pairing using QR codes and WebRTC",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1f2937",
+  "theme_color": "#1e40af",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./favicon.ico",
+      "sizes": "16x16 32x32",
+      "type": "image/x-icon"
+    }
+  ]
+}

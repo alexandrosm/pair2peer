@@ -346,7 +346,11 @@
         console.log('---');
         
         // Update version in UI
-        document.getElementById('version-display').textContent = `v${VERSION}`;
+        // Update version display if it exists (removed from main view)
+        const versionEl = document.getElementById('version-display');
+        if (versionEl) {
+            versionEl.textContent = `v${VERSION}`;
+        }
 
         // Compression utilities
         function compressData(obj) {
