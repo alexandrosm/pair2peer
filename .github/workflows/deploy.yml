@@ -72,8 +72,6 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: |
           node build-with-cache-bust.js
-        env:
-          GITHUB_SHA: ${{ github.sha }}
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
