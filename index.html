@@ -19,29 +19,8 @@
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen p-4">
     <div class="w-full max-w-md mx-auto">
-        <!-- Header - Always at top -->
-        <div class="text-center mb-4">
-            <h1 class="text-2xl font-bold">Pair2Peer</h1>
-            <p class="text-xs text-gray-400" id="version-display">Loading...</p>
-            <!-- Debug toggle moved here -->
-            <button id="debug-toggle" class="text-xs text-gray-500 hover:text-gray-300 mt-2">
-                ▶ Debug
-            </button>
-            <div id="debug-options" class="hidden mt-2">
-                <button id="selftest-btn" class="text-xs bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded mr-2">
-                    Test
-                </button>
-                <button id="toggle-console" class="text-xs bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded">
-                    Console
-                </button>
-            </div>
-        </div>
-        
         <!-- Main container with flexible height -->
         <div class="bg-gray-800 rounded-lg shadow-lg p-4">
-            <div id="status" class="mb-3 p-2 rounded-lg bg-blue-900 text-blue-100 text-center text-sm">
-                Starting camera...
-            </div>
             
             <!-- Auto-starts, no UI needed -->
             <div id="step-start" class="step-view hidden">
@@ -51,10 +30,31 @@
 
             <!-- Split View: QR + Camera (used by both devices) -->
             <div id="step-device1-split" class="step-view hidden">
-                <!-- QR Code at top -->
+                <!-- QR Code at very top -->
                 <div class="mb-3">
                     <div id="qr-display-split" class="mx-auto mb-2 flex justify-center"></div>
-                    <p class="text-center text-sm text-gray-400">Show your QR</p>
+                </div>
+                
+                <!-- All UI elements moved below QR -->
+                <div class="text-center mb-3">
+                    <h1 class="text-2xl font-bold">Pair2Peer</h1>
+                    <p class="text-xs text-gray-400" id="version-display-split">Loading...</p>
+                    <p class="text-sm text-gray-400 mt-2">Show your QR</p>
+                    <div id="status" class="mt-2 p-2 rounded-lg bg-blue-900 text-blue-100 text-center text-sm">
+                        Starting camera...
+                    </div>
+                    <!-- Debug toggle -->
+                    <button id="debug-toggle-split" class="text-xs text-gray-500 hover:text-gray-300 mt-2">
+                        ▶ Debug
+                    </button>
+                    <div id="debug-options-split" class="hidden mt-2">
+                        <button id="selftest-btn-split" class="text-xs bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded mr-2">
+                            Test
+                        </button>
+                        <button id="toggle-console-split" class="text-xs bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded">
+                            Console
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Camera Section -->
