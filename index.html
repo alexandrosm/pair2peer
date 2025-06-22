@@ -837,7 +837,9 @@
                     text: compressed,
                     width: 240,
                     height: 240,
-                    correctLevel: QRCode.CorrectLevel.L
+                    correctLevel: QRCode.CorrectLevel.L,
+                    colorDark: '#ffffff',  // White QR code
+                    colorLight: '#1f2937'  // Dark gray background (matches bg-gray-800)
                 });
                 
                 updateStatus('Answer generated - show QR to other device');
@@ -1548,7 +1550,9 @@
                     text: compressed,
                     width: 240,
                     height: 240,
-                    correctLevel: QRCode.CorrectLevel.L
+                    correctLevel: QRCode.CorrectLevel.L,
+                    colorDark: '#ffffff',  // White QR code
+                    colorLight: '#1f2937'  // Dark gray background (matches bg-gray-800)
                 });
                 
                 // Set scan target based on role
