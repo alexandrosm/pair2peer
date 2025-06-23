@@ -199,7 +199,9 @@
             lastData: null,
             preGeneratedOffer: null,
             preGeneratedQR: null,
-            cameraFacing: 'user' // 'user' for selfie cam, 'environment' for back
+            cameraFacing: 'user', // 'user' for selfie cam, 'environment' for back
+            eventHistory: [], // Track all events with timestamps
+            peerEventHistory: null // Will store peer's event history after connection
         };
         
         // Debug console is off by default
@@ -207,10 +209,22 @@
         
         window.addDebugLog = function(message, type = 'log') {
             const timestamp = new Date().toLocaleTimeString();
+            const fullTimestamp = new Date().toISOString();
             window.debugLogs.push({ timestamp, message, type });
             if (window.debugLogs.length > window.maxDebugLogs) {
                 window.debugLogs.shift();
             }
+            
+            // Also add to event history with full timestamp
+            window.state.eventHistory.push({
+                timestamp: fullTimestamp,
+                role: window.state.role || 'unknown',
+                type: type,
+                message: message,
+                connectionState: window.state.pc?.connectionState || 'none',
+                iceState: window.state.pc?.iceConnectionState || 'none'
+            });
+            
             window.updateDebugPanel();
         }
         
@@ -986,6 +1000,18 @@
                 
                 // Initialize shared state
                 initializeSharedState();
+                
+                // Exchange event histories after connection
+                setTimeout(() => {
+                    if (state.dc && state.dc.readyState === 'open') {
+                        console.log('Sending event history to peer...');
+                        state.dc.send(JSON.stringify({
+                            type: 'eventHistory',
+                            history: state.eventHistory,
+                            role: state.role
+                        }));
+                    }
+                }, 500);
             };
             
             state.dc.onclose = () => {
@@ -1339,6 +1365,14 @@
         
         function handleSharedStateMessage(msg) {
             switch (msg.type) {
+                case 'eventHistory':
+                    // Receive peer's event history
+                    console.log('Received peer event history');
+                    state.peerEventHistory = msg.history;
+                    state.peerRole = msg.role;
+                    consolidateEventHistories();
+                    break;
+                    
                 case 'request-state':
                     // Send current state to peer
                     if (state.dc && state.dc.readyState === 'open') {
@@ -2301,6 +2335,75 @@
                 console.error('Failed to copy logs:', err);
             });
         });
+        
+        // Function to consolidate event histories from both devices
+        function consolidateEventHistories() {
+            if (!state.eventHistory || !state.peerEventHistory) {
+                console.log('Cannot consolidate - missing event history');
+                return;
+            }
+            
+            console.log('Consolidating event histories...');
+            
+            // Combine both histories
+            const allEvents = [
+                ...state.eventHistory.map(e => ({...e, device: state.role})),
+                ...state.peerEventHistory.map(e => ({...e, device: state.peerRole}))
+            ];
+            
+            // Sort by timestamp
+            allEvents.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            
+            // Create unified narrative
+            console.log('\n=== UNIFIED CONNECTION TIMELINE ===');
+            console.log(`Device 1: ${state.role === 'device1' ? 'This device' : 'Peer device'}`);
+            console.log(`Device 2: ${state.role === 'device2' ? 'This device' : 'Peer device'}`);
+            console.log('\nTimeline:');
+            
+            let lastTime = null;
+            allEvents.forEach((event, idx) => {
+                const time = new Date(event.timestamp);
+                const timeDiff = lastTime ? (time - lastTime) / 1000 : 0;
+                lastTime = time;
+                
+                const prefix = event.device === 'device1' ? '[D1]' : '[D2]';
+                const timeStr = time.toISOString().substring(11, 23);
+                const deltaStr = idx > 0 ? ` (+${timeDiff.toFixed(2)}s)` : '';
+                
+                console.log(`${timeStr}${deltaStr} ${prefix} ${event.message}`);
+                
+                // Highlight significant events
+                if (event.message.includes('ICE connection state: connected') ||
+                    event.message.includes('Data channel opened') ||
+                    event.message.includes('error') ||
+                    event.message.includes('failed')) {
+                    console.log(`  ^ ${event.connectionState ? `Connection: ${event.connectionState}` : ''} ${event.iceState ? `ICE: ${event.iceState}` : ''}`);
+                }
+            });
+            
+            console.log('\n=== END TIMELINE ===\n');
+            
+            // Store consolidated history
+            state.consolidatedHistory = allEvents;
+            
+            // Show summary in UI
+            const totalTime = (new Date(allEvents[allEvents.length - 1].timestamp) - new Date(allEvents[0].timestamp)) / 1000;
+            updateStatus(`Connected! Total setup time: ${totalTime.toFixed(1)}s`, 'success');
+            
+            // Also show timeline in debug panel if enabled
+            if (window.debugConsoleEnabled) {
+                const summaryHtml = `
+                    <div class="text-yellow-400 font-bold mt-2">Connection Timeline Summary:</div>
+                    <div class="text-gray-300">Total setup time: ${totalTime.toFixed(1)}s</div>
+                    <div class="text-gray-300">Events: ${allEvents.length}</div>
+                    <div class="text-gray-300">Check console for full timeline</div>
+                `;
+                const content = document.getElementById('debug-content');
+                if (content) {
+                    content.innerHTML += summaryHtml;
+                }
+            }
+        }
         
         // Tab switching
         addClickHandler('chat-tab', () => {
