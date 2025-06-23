@@ -434,11 +434,15 @@
             try {
                 let bytes;
                 
-                // Handle both binary (Uint8Array) and string inputs
+                // Handle both binary (Uint8Array/Array) and string inputs
                 if (data instanceof Uint8Array) {
                     // Direct binary data from QR code
-                    console.log('Decompressing binary data:', data.length, 'bytes');
+                    console.log('Decompressing binary data (Uint8Array):', data.length, 'bytes');
                     bytes = data;
+                } else if (Array.isArray(data)) {
+                    // jsQR returns binary data as regular Array
+                    console.log('Decompressing binary data (Array):', data.length, 'bytes');
+                    bytes = new Uint8Array(data);
                 } else if (typeof data === 'string') {
                     // Legacy Base45 string support (may include CRC from old versions)
                     console.log('Decompressing Base45 string:', data.substring(0, 50) + '...');
