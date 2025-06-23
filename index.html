@@ -1390,10 +1390,20 @@
                 const video = document.getElementById('video');
                 video.srcObject = state.stream;
                 
-                const canvas = document.createElement('canvas');
+                // Pre-allocate canvas and reuse it
+                // Use OffscreenCanvas if available for better performance
+                const canvasSupported = typeof OffscreenCanvas !== 'undefined';
+                const canvas = canvasSupported ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
                 const ctx = canvas.getContext('2d', { 
-                    willReadFrequently: true
+                    willReadFrequently: true,
+                    desynchronized: true,
+                    alpha: false
                 });
+                
+                // Pre-allocate ImageData buffer
+                let imageData = null;
+                let lastWidth = 0;
+                let lastHeight = 0;
                 
                 let lastScanTime = 0;
                 const SCAN_THROTTLE = 250; // Match the other scanner throttle
@@ -1408,12 +1418,20 @@
                     if (video.readyState === video.HAVE_ENOUGH_DATA) {
                         lastScanTime = now;
                         
-                        // Use full resolution
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
+                        // Only resize canvas if dimensions changed
+                        if (video.videoWidth !== lastWidth || video.videoHeight !== lastHeight) {
+                            lastWidth = video.videoWidth;
+                            lastHeight = video.videoHeight;
+                            canvas.width = lastWidth;
+                            canvas.height = lastHeight;
+                            // Recreate ImageData for new size
+                            imageData = ctx.createImageData(lastWidth, lastHeight);
+                        }
+                        
                         ctx.drawImage(video, 0, 0);
                         
-                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        // Get image data (reuse buffer if possible)
+                        imageData = ctx.getImageData(0, 0, lastWidth, lastHeight);
                         
                         // Try scanning with inversion
                         const code = jsQR(imageData.data, imageData.width, imageData.height, {
@@ -1465,10 +1483,20 @@
                 const video = document.getElementById('video-split');
                 video.srcObject = state.stream;
                 
-                const canvas = document.createElement('canvas');
+                // Pre-allocate canvas and reuse it
+                // Use OffscreenCanvas if available for better performance
+                const canvasSupported = typeof OffscreenCanvas !== 'undefined';
+                const canvas = canvasSupported ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
                 const ctx = canvas.getContext('2d', { 
-                    willReadFrequently: true
+                    willReadFrequently: true,
+                    desynchronized: true, // Hint to browser for better performance
+                    alpha: false // We don't need alpha channel
                 });
+                
+                // Pre-allocate ImageData buffer
+                let imageData = null;
+                let lastWidth = 0;
+                let lastHeight = 0;
                 
                 let scanning = false;
                 let lastScanTime = 0;
@@ -1491,12 +1519,20 @@
                         // Measure performance only in debug mode
                         const perfStart = state.debugMode ? performance.now() : 0;
                         
-                        // Use full resolution for better QR detection
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
+                        // Only resize canvas if dimensions changed
+                        if (video.videoWidth !== lastWidth || video.videoHeight !== lastHeight) {
+                            lastWidth = video.videoWidth;
+                            lastHeight = video.videoHeight;
+                            canvas.width = lastWidth;
+                            canvas.height = lastHeight;
+                            // Recreate ImageData for new size
+                            imageData = ctx.createImageData(lastWidth, lastHeight);
+                        }
+                        
                         ctx.drawImage(video, 0, 0);
                         
-                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        // Get image data (reuse buffer if possible)
+                        imageData = ctx.getImageData(0, 0, lastWidth, lastHeight);
                         
                         // Try scanning with inversion for better reliability
                         const code = jsQR(imageData.data, imageData.width, imageData.height, {
