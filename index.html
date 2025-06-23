@@ -46,15 +46,16 @@
 
             <!-- Split View: QR + Camera (used by both devices) -->
             <div id="step-device1-split" class="step-view hidden">
-                <!-- Instructions and QR Code at very top -->
-                <div class="text-center mb-2">
-                    <p class="text-sm text-gray-400" id="qr-type-label">Show your QR</p>
-                </div>
-                
+                <!-- QR Code at top -->
                 <div class="mb-3">
                     <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio: 4/3;">
                         <div id="qr-display-split" class="absolute inset-0 flex items-center justify-center"></div>
                     </div>
+                </div>
+                
+                <!-- Instructions between QR and camera -->
+                <div class="bg-black text-white p-3 rounded-lg mb-3 text-center">
+                    <p class="text-sm font-medium" id="connection-instruction">Point cameras at each other</p>
                 </div>
                 
                 <!-- Camera Section -->
@@ -78,6 +79,7 @@
                 <div class="text-center">
                     <h1 class="text-2xl font-bold">Pair2Peer</h1>
                     <p class="text-xs text-gray-400" id="version-display-split">Loading...</p>
+                    <p class="text-sm text-gray-400 mt-1" id="qr-type-label">Show your QR</p>
                     <p class="text-xs text-gray-500" id="qr-info-display">QR: -- | Bits: --</p>
                     <div id="status" class="mt-2 p-2 rounded-lg bg-gray-900 text-gray-100 text-center text-sm">
                         Starting camera...
@@ -1140,7 +1142,13 @@
                 const qrLabel = document.getElementById('qr-type-label');
                 if (qrLabel) {
                     qrLabel.textContent = '📥 Answer QR (Device 2)';
-                    qrLabel.className = 'text-sm font-semibold text-green-400 mt-2';
+                    qrLabel.className = 'text-sm font-semibold text-green-400 mt-1';
+                }
+                
+                // Update instruction
+                const instruction = document.getElementById('connection-instruction');
+                if (instruction) {
+                    instruction.textContent = 'Show this to Device 1';
                 }
                 
                 // Debug: Show answer data
@@ -2064,7 +2072,13 @@
                 const qrLabel = document.getElementById('qr-type-label');
                 if (qrLabel) {
                     qrLabel.textContent = '📤 Offer QR (Device 1)';
-                    qrLabel.className = 'text-sm font-semibold text-gray-400 mt-2';
+                    qrLabel.className = 'text-sm font-semibold text-gray-400 mt-1';
+                }
+                
+                // Keep default instruction for offer
+                const instruction = document.getElementById('connection-instruction');
+                if (instruction) {
+                    instruction.textContent = 'Point cameras at each other';
                 }
                 
                 // Debug: Show offer data
