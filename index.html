@@ -321,7 +321,7 @@
         const { encodeWebRTCData, decodeWebRTCData } = asn1Module;
         const { addCRC, verifyCRC } = crcModule;
         const { base45Encode, base45Decode } = base45Module;
-        const { generateLeanQR, generateBase45QR } = qrLeanModule;
+        const { generateLeanQR, generateBase45QR, generateBinaryQR } = qrLeanModule;
         
         // Simple shared state implementation
         let sharedState = {
@@ -427,35 +427,45 @@
             const binaryWithCRC = addCRC(binary);
             console.log('Added CRC, total size:', binaryWithCRC.length, 'bytes');
             
-            // Use Base45 encoding for QR codes
-            const base45Str = base45Encode(binaryWithCRC);
-            console.log('Base45 encoded to', base45Str.length, 'characters');
+            // Return binary data directly for QR code
+            console.log('Using binary mode for QR (no Base45)');
             
-            return base45Str;
+            return binaryWithCRC;
         }
 
-        function decompressData(str) {
+        function decompressData(data) {
             try {
-                console.log('Decompressing string:', str.substring(0, 50) + '...');
-                console.log('String length:', str.length);
-                
-                // Check if string is empty or invalid
-                if (!str || str.length === 0) {
-                    console.error('Empty QR data received');
-                    return null;
-                }
-                
-                // Decode from Base45
                 let bytesWithCRC;
-                try {
-                    bytesWithCRC = base45Decode(str);
-                } catch (e) {
-                    console.error('Base45 decode error:', e);
-                    console.error('Invalid base45 string:', str);
+                
+                // Handle both binary (Uint8Array) and string inputs
+                if (data instanceof Uint8Array) {
+                    // Direct binary data from QR code
+                    console.log('Decompressing binary data:', data.length, 'bytes');
+                    bytesWithCRC = data;
+                } else if (typeof data === 'string') {
+                    // Legacy Base45 string support
+                    console.log('Decompressing Base45 string:', data.substring(0, 50) + '...');
+                    console.log('String length:', data.length);
+                    
+                    if (!data || data.length === 0) {
+                        console.error('Empty QR data received');
+                        return null;
+                    }
+                    
+                    // Decode from Base45
+                    try {
+                        bytesWithCRC = base45Decode(data);
+                    } catch (e) {
+                        console.error('Base45 decode error:', e);
+                        console.error('Invalid base45 string:', data);
+                        return null;
+                    }
+                } else {
+                    console.error('Invalid data type:', typeof data);
                     return null;
                 }
                 
-                console.log('Decoded to', bytesWithCRC.length, 'bytes (including CRC)');
+                console.log('Data to verify:', bytesWithCRC.length, 'bytes (including CRC)');
                 
                 // Verify CRC
                 const crcResult = verifyCRC(bytesWithCRC);
@@ -532,16 +542,19 @@
             return 400; // Default size
         }
         
-        function updateQRInfo(type, dataStr) {
+        function updateQRInfo(type, data) {
             const qrInfo = document.getElementById('qr-info-display');
             if (qrInfo) {
                 const typeStr = type === 'o' ? 'Offer' : type === 'a' ? 'Answer' : 'Unknown';
                 
-                // Calculate data bits
-                const dataBits = dataStr.length * 8;
+                // Calculate data bits based on whether it's binary or string
+                const isBinary = data instanceof Uint8Array;
+                const dataBytes = isBinary ? data.length : data.length;
+                const dataBits = isBinary ? dataBytes * 8 : dataBytes * 8; // Binary mode uses 8 bits per byte
                 
                 // Calculate QR version and capacity
-                const qrVersion = getQRVersion(dataStr, 'L');
+                // For binary data, we need to consider byte mode capacity
+                const qrVersion = isBinary ? getQRVersionBinary(dataBytes, 'L') : getQRVersion(data, 'L');
                 const qrModules = 21 + (qrVersion - 1) * 4; // modules per side
                 const totalModules = qrModules * qrModules;
                 
@@ -586,6 +599,25 @@
             
             for (let v = 0; v < capacities.length; v++) {
                 if (dataLength <= capacities[v][byteIndex]) {
+                    return v + 1;
+                }
+            }
+            
+            // If we get here, data is too large even for version 20
+            return 20;
+        }
+        
+        // Calculate minimum QR version needed for binary data
+        function getQRVersionBinary(dataBytes, errorCorrection) {
+            // QR capacity table for error correction level L (7% recovery)
+            // Binary mode capacities
+            const capacities = [
+                17, 32, 53, 78, 106, 134, 154, 192, 230, 271,
+                321, 367, 425, 458, 520, 586, 644, 718, 792, 858
+            ];
+            
+            for (let v = 0; v < capacities.length; v++) {
+                if (dataBytes <= capacities[v]) {
                     return v + 1;
                 }
             }
@@ -1011,7 +1043,7 @@
                 const qrDiv = document.getElementById('qr-display-split');
                 qrDiv.innerHTML = '';
                 const qrSize = getQRSize();
-                generateBase45QR(qrDiv, compressed, {
+                generateBinaryQR(qrDiv, compressed, {
                     width: qrSize,
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#000000'  // Black background
@@ -1084,7 +1116,7 @@
             qrDiv.innerHTML = '';
             
             try {
-                generateBase45QR(qrDiv, data, {
+                generateBinaryQR(qrDiv, data, {
                     width: 400,
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#000000'  // Black background
@@ -1579,17 +1611,27 @@
                         if (code) {
                             noQRCount = 0; // Reset counter
                             
+                            // Get the QR data - binary or string
+                            const qrData = code.binaryData || code.data;
+                            
                             // Check if this is our own QR code (self-scan prevention)
-                            if (state.currentQRData && code.data === state.currentQRData) {
-                                console.log('Ignoring self-scan in simple scanner');
-                                return;
+                            // For binary, compare the actual bytes
+                            if (state.currentQRData) {
+                                const isSelfScan = (qrData instanceof Uint8Array && state.currentQRData instanceof Uint8Array) ?
+                                    qrData.length === state.currentQRData.length && qrData.every((b, i) => b === state.currentQRData[i]) :
+                                    qrData === state.currentQRData;
+                                
+                                if (isSelfScan) {
+                                    console.log('Ignoring self-scan in simple scanner');
+                                    return;
+                                }
                             }
                             
                             stopCamera();
                             if (state.scanTarget === 'offer') {
-                                processOffer(code.data);
+                                processOffer(qrData);
                             } else {
-                                processAnswer(code.data);
+                                processAnswer(qrData);
                             }
                             return;
                         } else {
@@ -1673,18 +1715,31 @@
                         if (code) {
                             noQRCount = 0; // Reset counter when QR found
                             
+                            // Get the QR data - binary or string
+                            const qrData = code.binaryData || code.data;
+                            
                             // Check if this is our own QR code (self-scan prevention)
-                            if (state.currentQRData && code.data === state.currentQRData) {
-                                console.log('Ignoring self-scan (detected our own QR code)');
-                                scanning = false;
-                                return;
+                            // For binary, compare the actual bytes
+                            if (state.currentQRData) {
+                                const isSelfScan = (qrData instanceof Uint8Array && state.currentQRData instanceof Uint8Array) ?
+                                    qrData.length === state.currentQRData.length && qrData.every((b, i) => b === state.currentQRData[i]) :
+                                    qrData === state.currentQRData;
+                                
+                                if (isSelfScan) {
+                                    console.log('Ignoring self-scan (detected our own QR code)');
+                                    scanning = false;
+                                    return;
+                                }
                             }
                             
                             // Determine what type of data we scanned
-                            const decompressed = decompressData(code.data);
+                            const decompressed = decompressData(qrData);
                             if (decompressed) {
                                 // Store the last processed QR to avoid duplicates
-                                const qrKey = `${decompressed.t}-${code.data.substring(0, 20)}`;
+                                // For binary data, use hex representation for key
+                                const qrKey = qrData instanceof Uint8Array ?
+                                    `${decompressed.t}-${Array.from(qrData.slice(0, 10)).map(b => b.toString(16).padStart(2, '0')).join('')}` :
+                                    `${decompressed.t}-${qrData.substring(0, 20)}`;
                                 if (state.processedQRs && state.processedQRs.has(qrKey)) {
                                     console.log('Already processed this QR, ignoring duplicate');
                                     scanning = false;
@@ -1887,7 +1942,7 @@
                 const qrDiv = document.getElementById('qr-display-split');
                 qrDiv.innerHTML = '';
                 const qrSize = getQRSize();
-                generateBase45QR(qrDiv, compressed, {
+                generateBinaryQR(qrDiv, compressed, {
                     width: qrSize,
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#000000'  // Black background
