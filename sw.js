@@ -9,6 +9,7 @@ const urlsToCache = [
   './asn1-uper-codec.js',
   './binary-codec.js',
   './crc.js',
+  './base45-lib.js',
   './manifest.json',
   './favicon.ico'
 ];
