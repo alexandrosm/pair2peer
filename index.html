@@ -307,10 +307,12 @@
         const sdpModule = await import(`./sdp-compact.js?v=${CACHE_VERSION}`);
         const asn1Module = await import(`./asn1-uper-codec.js?v=${CACHE_VERSION}`);
         const crcModule = await import(`./crc.js?v=${CACHE_VERSION}`);
+        const base45Module = await import(`./base45-lib.js?v=${CACHE_VERSION}`);
         
         const { compactSDP, expandSDP } = sdpModule;
         const { encodeWebRTCData, decodeWebRTCData } = asn1Module;
         const { addCRC, verifyCRC } = crcModule;
+        const { base45Encode, base45Decode } = base45Module;
         
         // Simple shared state implementation
         let sharedState = {
@@ -381,7 +383,7 @@
         console.log(`%cPair2Peer v${VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
         console.log(`Commit: ${GIT_COMMIT}`);
-        console.log(`ASN.1 UPER codec: Direct binary output`);
+        console.log(`Encoding: ASN.1 UPER + Base45`);
         console.log('---');
         
         // Helper function to format time ago
@@ -416,13 +418,11 @@
             const binaryWithCRC = addCRC(binary);
             console.log('Added CRC, total size:', binaryWithCRC.length, 'bytes');
             
-            // Convert binary to string for QR code
-            // Using Latin-1 encoding to preserve all byte values
-            let binaryStr = '';
-            for (let i = 0; i < binaryWithCRC.length; i++) {
-                binaryStr += String.fromCharCode(binaryWithCRC[i]);
-            }
-            return btoa(binaryStr); // Base64 for safe transport
+            // Use Base45 encoding (more efficient than Base64 for QR codes)
+            const base45Str = base45Encode(binaryWithCRC);
+            console.log('Base45 encoded to', base45Str.length, 'characters');
+            
+            return base45Str;
         }
 
         function decompressData(str) {
@@ -436,20 +436,16 @@
                     return null;
                 }
                 
-                // Decode from Base64
-                let binaryStr;
+                // Decode from Base45
+                let bytesWithCRC;
                 try {
-                    binaryStr = atob(str);
+                    bytesWithCRC = base45Decode(str);
                 } catch (e) {
-                    console.error('Base64 decode error:', e);
-                    console.error('Invalid base64 string:', str);
+                    console.error('Base45 decode error:', e);
+                    console.error('Invalid base45 string:', str);
                     return null;
                 }
                 
-                const bytesWithCRC = new Uint8Array(binaryStr.length);
-                for (let i = 0; i < binaryStr.length; i++) {
-                    bytesWithCRC[i] = binaryStr.charCodeAt(i);
-                }
                 console.log('Decoded to', bytesWithCRC.length, 'bytes (including CRC)');
                 
                 // Verify CRC
