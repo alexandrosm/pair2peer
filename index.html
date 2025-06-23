@@ -15,12 +15,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Make QR code fill container */
+        #qr-display-split {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         #qr-display-split canvas,
         #qr-display-split img {
+            width: 100% !important;
+            height: 100% !important;
             max-width: 100%;
             max-height: 100%;
-            width: auto !important;
-            height: auto !important;
+            object-fit: contain;
         }
     </style>
     <!-- QR generation handled by lean-qr module -->
@@ -520,7 +526,8 @@
                 const width = parent.offsetWidth;
                 const height = parent.offsetHeight;
                 const size = Math.min(width, height) || 400;
-                return Math.min(size, 400); // Cap at 400 for performance
+                // Return full size - no cap, make it as large as the container
+                return size;
             }
             return 400; // Default size
         }
