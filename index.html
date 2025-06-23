@@ -766,15 +766,18 @@
         
         async function processScannedOffer(compressedData) {
             try {
-                // Prevent processing if we're already connected
-                if (state.pc && (state.pc.connectionState === 'connected' || 
-                                 state.pc.connectionState === 'connecting')) {
-                    console.log('Already connected/connecting, ignoring scanned offer');
-                    return;
-                }
-                
                 const data = decompressData(compressedData);
                 if (!data || data.t !== 'o') throw new Error('Invalid offer');
+                
+                // Validate IP addresses aren't corrupted
+                if (data.c && data.c.length > 0) {
+                    for (const candidate of data.c) {
+                        if (candidate.includes('192.0.0.4') || candidate.includes('0.0.0.')) {
+                            console.error('Corrupted IP detected in candidate:', candidate);
+                            throw new Error('QR data corrupted - please try again');
+                        }
+                    }
+                }
                 
                 console.log('Processing scanned offer (simultaneous mode):', data);
                 updateStatus('Processing offer...');
@@ -1469,17 +1472,19 @@
                             // Determine what type of data we scanned
                             const decompressed = decompressData(code.data);
                             if (decompressed) {
-                                // Additional self-scan check based on device role
-                                if (state.role === 'device1' && decompressed.t === 'o') {
-                                    console.log('Device 1 ignoring offer (we only scan answers)');
+                                // Store the last processed QR to avoid duplicates
+                                const qrKey = `${decompressed.t}-${code.data.substring(0, 20)}`;
+                                if (state.processedQRs && state.processedQRs.has(qrKey)) {
+                                    console.log('Already processed this QR, ignoring duplicate');
                                     scanning = false;
                                     return;
                                 }
-                                if (state.role === 'device2' && decompressed.t === 'a') {
-                                    console.log('Device 2 ignoring answer (we only scan offers)');
-                                    scanning = false;
-                                    return;
+                                
+                                // Initialize processed QRs set if needed
+                                if (!state.processedQRs) {
+                                    state.processedQRs = new Set();
                                 }
+                                state.processedQRs.add(qrKey);
                                 
                                 // Only stop camera if we're scanning an answer (final step)
                                 // Keep camera running after scanning offer so Device 1 can scan our answer
