@@ -693,7 +693,25 @@
             
             try {
                 state.pc = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                        { urls: 'stun:stun4.l.google.com:19302' },
+                        // Add Metered's free TURN server to help with CGNAT
+                        {
+                            urls: 'turn:a.relay.metered.ca:80',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        },
+                        {
+                            urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        }
+                    ],
+                    iceCandidatePoolSize: 10
                 });
                 
                 // Add connection state monitoring
@@ -827,7 +845,25 @@
                 state.role = 'device2';
                 
                 state.pc = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                        { urls: 'stun:stun4.l.google.com:19302' },
+                        // Add Metered's free TURN server to help with CGNAT
+                        {
+                            urls: 'turn:a.relay.metered.ca:80',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        },
+                        {
+                            urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        }
+                    ],
+                    iceCandidatePoolSize: 10
                 });
                 
                 // Add connection state monitoring
@@ -992,7 +1028,25 @@
                 
                 // Setup new peer connection
                 state.pc = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                        { urls: 'stun:stun4.l.google.com:19302' },
+                        // Add Metered's free TURN server to help with CGNAT
+                        {
+                            urls: 'turn:a.relay.metered.ca:80',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        },
+                        {
+                            urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        }
+                    ],
+                    iceCandidatePoolSize: 10
                 });
                 
                 // Setup connection event handlers with reconnection support
@@ -1903,7 +1957,25 @@
             try {
                 // Always create an offer (both devices)
                 state.pc = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                        { urls: 'stun:stun4.l.google.com:19302' },
+                        // Add Metered's free TURN server to help with CGNAT
+                        {
+                            urls: 'turn:a.relay.metered.ca:80',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        },
+                        {
+                            urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        }
+                    ],
+                    iceCandidatePoolSize: 10
                 });
                 
                 // Setup connection event handlers with reconnection support
@@ -2086,7 +2158,25 @@
             try {
                 console.log('Pre-generating offer...');
                 const pc = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                        { urls: 'stun:stun4.l.google.com:19302' },
+                        // Add Metered's free TURN server to help with CGNAT
+                        {
+                            urls: 'turn:a.relay.metered.ca:80',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        },
+                        {
+                            urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+                            username: 'e8dd65c92aa8c7be2e83d477',
+                            credential: 'JgrB7SZ8t8PN4Trp'
+                        }
+                    ],
+                    iceCandidatePoolSize: 10
                 });
                 
                 const dc = pc.createDataChannel('data');
@@ -2290,7 +2380,11 @@
                         
                         // CRITICAL: Test actual browser SDP parsing
                         console.log('\nTesting browser SDP parsing...');
-                        const testPc = new RTCPeerConnection();
+                        const testPc = new RTCPeerConnection({
+                            iceServers: [
+                                { urls: 'stun:stun.l.google.com:19302' }
+                            ]
+                        });
                         try {
                             await testPc.setRemoteDescription({
                                 type: 'offer',
