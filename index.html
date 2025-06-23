@@ -383,7 +383,7 @@
         console.log(`%cPair2Peer v${VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
         console.log(`Commit: ${GIT_COMMIT}`);
-        console.log(`Encoding: ASN.1 UPER + Base45`);
+        console.log(`Encoding: ASN.1 UPER + Base64`);
         console.log('---');
         
         // Helper function to format time ago
@@ -418,11 +418,15 @@
             const binaryWithCRC = addCRC(binary);
             console.log('Added CRC, total size:', binaryWithCRC.length, 'bytes');
             
-            // Use Base45 encoding (more efficient than Base64 for QR codes)
-            const base45Str = base45Encode(binaryWithCRC);
-            console.log('Base45 encoded to', base45Str.length, 'characters');
+            // Convert binary to Base64 for QR code
+            let binaryStr = '';
+            for (let i = 0; i < binaryWithCRC.length; i++) {
+                binaryStr += String.fromCharCode(binaryWithCRC[i]);
+            }
+            const base64Str = btoa(binaryStr);
+            console.log('Base64 encoded to', base64Str.length, 'characters');
             
-            return base45Str;
+            return base64Str;
         }
 
         function decompressData(str) {
@@ -436,14 +440,19 @@
                     return null;
                 }
                 
-                // Decode from Base45
-                let bytesWithCRC;
+                // Decode from Base64
+                let binaryStr;
                 try {
-                    bytesWithCRC = base45Decode(str);
+                    binaryStr = atob(str);
                 } catch (e) {
-                    console.error('Base45 decode error:', e);
-                    console.error('Invalid base45 string:', str);
+                    console.error('Base64 decode error:', e);
+                    console.error('Invalid base64 string:', str);
                     return null;
+                }
+                
+                const bytesWithCRC = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) {
+                    bytesWithCRC[i] = binaryStr.charCodeAt(i);
                 }
                 
                 console.log('Decoded to', bytesWithCRC.length, 'bytes (including CRC)');
