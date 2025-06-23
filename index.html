@@ -23,7 +23,7 @@
             height: auto !important;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- QR generation handled by lean-qr module -->
     <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 </head>
@@ -308,11 +308,13 @@
         const asn1Module = await import(`./asn1-uper-codec.js?v=${CACHE_VERSION}`);
         const crcModule = await import(`./crc.js?v=${CACHE_VERSION}`);
         const base45Module = await import(`./base45-lib.js?v=${CACHE_VERSION}`);
+        const qrLeanModule = await import(`./qr-lean.js?v=${CACHE_VERSION}`);
         
         const { compactSDP, expandSDP } = sdpModule;
         const { encodeWebRTCData, decodeWebRTCData } = asn1Module;
         const { addCRC, verifyCRC } = crcModule;
         const { base45Encode, base45Decode } = base45Module;
+        const { generateLeanQR, generateBase45QR } = qrLeanModule;
         
         // Simple shared state implementation
         let sharedState = {
@@ -383,7 +385,7 @@
         console.log(`%cPair2Peer v${VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
         console.log(`Commit: ${GIT_COMMIT}`);
-        console.log(`Encoding: ASN.1 UPER + Base64`);
+        console.log(`Encoding: ASN.1 UPER + Base45`);
         console.log('---');
         
         // Helper function to format time ago
@@ -418,15 +420,11 @@
             const binaryWithCRC = addCRC(binary);
             console.log('Added CRC, total size:', binaryWithCRC.length, 'bytes');
             
-            // Convert binary to Base64 for QR code
-            let binaryStr = '';
-            for (let i = 0; i < binaryWithCRC.length; i++) {
-                binaryStr += String.fromCharCode(binaryWithCRC[i]);
-            }
-            const base64Str = btoa(binaryStr);
-            console.log('Base64 encoded to', base64Str.length, 'characters');
+            // Use Base45 encoding for QR codes
+            const base45Str = base45Encode(binaryWithCRC);
+            console.log('Base45 encoded to', base45Str.length, 'characters');
             
-            return base64Str;
+            return base45Str;
         }
 
         function decompressData(str) {
@@ -440,19 +438,14 @@
                     return null;
                 }
                 
-                // Decode from Base64
-                let binaryStr;
+                // Decode from Base45
+                let bytesWithCRC;
                 try {
-                    binaryStr = atob(str);
+                    bytesWithCRC = base45Decode(str);
                 } catch (e) {
-                    console.error('Base64 decode error:', e);
-                    console.error('Invalid base64 string:', str);
+                    console.error('Base45 decode error:', e);
+                    console.error('Invalid base45 string:', str);
                     return null;
-                }
-                
-                const bytesWithCRC = new Uint8Array(binaryStr.length);
-                for (let i = 0; i < binaryStr.length; i++) {
-                    bytesWithCRC[i] = binaryStr.charCodeAt(i);
                 }
                 
                 console.log('Decoded to', bytesWithCRC.length, 'bytes (including CRC)');
@@ -1010,11 +1003,8 @@
                 const qrDiv = document.getElementById('qr-display-split');
                 qrDiv.innerHTML = '';
                 const qrSize = getQRSize();
-                new QRCode(qrDiv, {
-                    text: compressed,
+                generateBase45QR(qrDiv, compressed, {
                     width: qrSize,
-                    height: qrSize,
-                    correctLevel: QRCode.CorrectLevel.L,
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#000000'  // Black background
                 });
@@ -1086,11 +1076,8 @@
             qrDiv.innerHTML = '';
             
             try {
-                new QRCode(qrDiv, {
-                    text: data,
+                generateBase45QR(qrDiv, data, {
                     width: 400,
-                    height: 400,
-                    correctLevel: QRCode.CorrectLevel.L,
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#000000'  // Black background
                 });
@@ -1892,11 +1879,8 @@
                 const qrDiv = document.getElementById('qr-display-split');
                 qrDiv.innerHTML = '';
                 const qrSize = getQRSize();
-                new QRCode(qrDiv, {
-                    text: compressed,
+                generateBase45QR(qrDiv, compressed, {
                     width: qrSize,
-                    height: qrSize,
-                    correctLevel: QRCode.CorrectLevel.L,
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#000000'  // Black background
                 });

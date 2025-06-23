@@ -19,7 +19,7 @@ console.log(`Building Pair2Peer v${version} with cache bust hash: ${buildHash}`)
 
 // Files to process
 const htmlFiles = ['index.html', 'index-embedded.html'];
-const jsModules = ['version.js', 'sdp-compact.js', 'asn1-uper-codec.js', 'binary-codec.js', 'crc.js', 'base45-lib.js'];
+const jsModules = ['version.js', 'sdp-compact.js', 'asn1-uper-codec.js', 'binary-codec.js', 'crc.js', 'base45-lib.js', 'qr-lean.js'];
 
 // Process HTML files
 htmlFiles.forEach(htmlFile => {
