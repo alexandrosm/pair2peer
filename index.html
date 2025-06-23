@@ -449,27 +449,46 @@
                         return null;
                     }
                     
-                    // Decode from Base45
+                    // Try to decode as binary string first (from binary QR)
                     try {
-                        const decoded = base45Decode(data);
-                        // Check if this has legacy CRC (last 2 bytes)
-                        // Try to verify CRC if present, but don't fail if not
-                        if (decoded.length > 2) {
-                            const crcResult = verifyCRC(decoded);
-                            if (crcResult && crcResult.valid) {
-                                console.log('Legacy CRC detected and verified');
-                                bytes = crcResult.data;
-                            } else {
-                                // Assume no CRC or ignore failed CRC
-                                console.log('No CRC or using QR error correction');
-                                bytes = decoded;
+                        // Check if this is a binary string from QR scanner
+                        let isBinaryString = true;
+                        for (let i = 0; i < data.length; i++) {
+                            if (data.charCodeAt(i) > 255) {
+                                isBinaryString = false;
+                                break;
+                            }
+                        }
+                        
+                        if (isBinaryString && data.charCodeAt(0) < 128) {
+                            // Likely binary data from QR scanner
+                            console.log('Detected binary string from QR scanner');
+                            bytes = new Uint8Array(data.length);
+                            for (let i = 0; i < data.length; i++) {
+                                bytes[i] = data.charCodeAt(i);
                             }
                         } else {
-                            bytes = decoded;
+                            // Try Base45 decode
+                            const decoded = base45Decode(data);
+                            // Check if this has legacy CRC (last 2 bytes)
+                            // Try to verify CRC if present, but don't fail if not
+                            if (decoded.length > 2) {
+                                const crcResult = verifyCRC(decoded);
+                                if (crcResult && crcResult.valid) {
+                                    console.log('Legacy CRC detected and verified');
+                                    bytes = crcResult.data;
+                                } else {
+                                    // Assume no CRC or ignore failed CRC
+                                    console.log('No CRC or using QR error correction');
+                                    bytes = decoded;
+                                }
+                            } else {
+                                bytes = decoded;
+                            }
                         }
                     } catch (e) {
-                        console.error('Base45 decode error:', e);
-                        console.error('Invalid base45 string:', data);
+                        console.error('Decode error:', e);
+                        console.error('Invalid data string:', data);
                         return null;
                     }
                 } else {
@@ -1619,6 +1638,9 @@
                             noQRCount = 0; // Reset counter
                             
                             // Get the QR data - binary or string
+                            console.log('QR code detected, code object:', code);
+                            console.log('code.data type:', typeof code.data, 'value:', code.data);
+                            console.log('code.binaryData:', code.binaryData);
                             const qrData = code.binaryData || code.data;
                             
                             // Check if this is our own QR code (self-scan prevention)
@@ -1723,6 +1745,9 @@
                             noQRCount = 0; // Reset counter when QR found
                             
                             // Get the QR data - binary or string
+                            console.log('QR code detected, code object:', code);
+                            console.log('code.data type:', typeof code.data, 'value:', code.data);
+                            console.log('code.binaryData:', code.binaryData);
                             const qrData = code.binaryData || code.data;
                             
                             // Check if this is our own QR code (self-scan prevention)
