@@ -1390,55 +1390,45 @@
                 const video = document.getElementById('video');
                 video.srcObject = state.stream;
                 
-                // Pre-allocate canvas and reuse it
-                // Use OffscreenCanvas if available for better performance
-                const canvasSupported = typeof OffscreenCanvas !== 'undefined';
-                const canvas = canvasSupported ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
-                const ctx = canvas.getContext('2d', { 
-                    willReadFrequently: true,
-                    desynchronized: true,
-                    alpha: false
-                });
-                
-                // Pre-allocate ImageData buffer
-                let imageData = null;
-                let lastWidth = 0;
-                let lastHeight = 0;
+                // Simple canvas setup
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
                 
                 let lastScanTime = 0;
-                const SCAN_THROTTLE = 250; // Match the other scanner throttle
+                let noQRCount = 0;
+                const SCAN_THROTTLE_MIN = 100;
+                const SCAN_THROTTLE_MAX = 500;
                 
                 const scan = () => {
                     const now = Date.now();
-                    if (now - lastScanTime < SCAN_THROTTLE) {
-                        setTimeout(() => requestAnimationFrame(scan), SCAN_THROTTLE - (now - lastScanTime));
+                    const throttle = noQRCount > 5 ? SCAN_THROTTLE_MAX : SCAN_THROTTLE_MIN;
+                    
+                    if (now - lastScanTime < throttle) {
+                        setTimeout(() => requestAnimationFrame(scan), throttle - (now - lastScanTime));
                         return;
                     }
                     
                     if (video.readyState === video.HAVE_ENOUGH_DATA) {
                         lastScanTime = now;
                         
-                        // Only resize canvas if dimensions changed
-                        if (video.videoWidth !== lastWidth || video.videoHeight !== lastHeight) {
-                            lastWidth = video.videoWidth;
-                            lastHeight = video.videoHeight;
-                            canvas.width = lastWidth;
-                            canvas.height = lastHeight;
-                            // Recreate ImageData for new size
-                            imageData = ctx.createImageData(lastWidth, lastHeight);
-                        }
+                        // Set canvas size
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
                         
+                        // Draw video frame
                         ctx.drawImage(video, 0, 0);
                         
-                        // Get image data (reuse buffer if possible)
-                        imageData = ctx.getImageData(0, 0, lastWidth, lastHeight);
+                        // Get image data
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                         
-                        // Try scanning with inversion
+                        // Scan for QR
                         const code = jsQR(imageData.data, imageData.width, imageData.height, {
                             inversionAttempts: 'attemptBoth'
                         })
                         
                         if (code) {
+                            noQRCount = 0; // Reset counter
+                            
                             // Check if this is our own QR code (self-scan prevention)
                             if (state.currentQRData && code.data === state.currentQRData) {
                                 console.log('Ignoring self-scan in simple scanner');
@@ -1452,10 +1442,12 @@
                                 processAnswer(code.data);
                             }
                             return;
+                        } else {
+                            noQRCount++;
                         }
                     }
                     if (state.stream) {
-                        setTimeout(() => requestAnimationFrame(scan), SCAN_THROTTLE);
+                        requestAnimationFrame(scan);
                     }
                 };
                 
@@ -1483,32 +1475,25 @@
                 const video = document.getElementById('video-split');
                 video.srcObject = state.stream;
                 
-                // Pre-allocate canvas and reuse it
-                // Use OffscreenCanvas if available for better performance
-                const canvasSupported = typeof OffscreenCanvas !== 'undefined';
-                const canvas = canvasSupported ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
-                const ctx = canvas.getContext('2d', { 
-                    willReadFrequently: true,
-                    desynchronized: true, // Hint to browser for better performance
-                    alpha: false // We don't need alpha channel
-                });
-                
-                // Pre-allocate ImageData buffer
-                let imageData = null;
-                let lastWidth = 0;
-                let lastHeight = 0;
+                // Simple canvas setup - let the browser optimize
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
                 
                 let scanning = false;
                 let lastScanTime = 0;
-                const SCAN_THROTTLE = 250; // Increased to 250ms between scans to reduce console spam
+                let noQRCount = 0;
+                const SCAN_THROTTLE_MIN = 100; // Fast scanning when QR detected
+                const SCAN_THROTTLE_MAX = 500; // Slow scanning when no QR
                 
                 const scan = () => {
                     if (!state.stream || scanning) return;
                     
                     const now = Date.now();
-                    if (now - lastScanTime < SCAN_THROTTLE) {
-                        // Schedule next scan after remaining throttle time
-                        setTimeout(() => requestAnimationFrame(scan), SCAN_THROTTLE - (now - lastScanTime));
+                    // Adaptive throttle - scan slower when no QR detected
+                    const throttle = noQRCount > 5 ? SCAN_THROTTLE_MAX : SCAN_THROTTLE_MIN;
+                    
+                    if (now - lastScanTime < throttle) {
+                        setTimeout(() => requestAnimationFrame(scan), throttle - (now - lastScanTime));
                         return;
                     }
                     
@@ -1516,31 +1501,25 @@
                         scanning = true;
                         lastScanTime = now;
                         
-                        // Measure performance only in debug mode
                         const perfStart = state.debugMode ? performance.now() : 0;
                         
-                        // Only resize canvas if dimensions changed
-                        if (video.videoWidth !== lastWidth || video.videoHeight !== lastHeight) {
-                            lastWidth = video.videoWidth;
-                            lastHeight = video.videoHeight;
-                            canvas.width = lastWidth;
-                            canvas.height = lastHeight;
-                            // Recreate ImageData for new size
-                            imageData = ctx.createImageData(lastWidth, lastHeight);
-                        }
+                        // Set canvas size to match video
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
                         
+                        // Draw video frame - browser will use GPU if available
                         ctx.drawImage(video, 0, 0);
                         
-                        // Get image data (reuse buffer if possible)
-                        imageData = ctx.getImageData(0, 0, lastWidth, lastHeight);
+                        // Get image data
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                         
-                        // Try scanning with inversion for better reliability
+                        // Scan for QR code
                         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                            inversionAttempts: 'attemptBoth' // Try both normal and inverted
+                            inversionAttempts: 'attemptBoth'
                         })
                         
                         if (code) {
-                            // Skip logging on every detection to reduce console spam
+                            noQRCount = 0; // Reset counter when QR found
                             
                             // Check if this is our own QR code (self-scan prevention)
                             if (state.currentQRData && code.data === state.currentQRData) {
@@ -1586,20 +1565,22 @@
                             } else {
                                 scanning = false;
                             }
+                        } else {
+                            noQRCount++; // Increment when no QR found
                         }
                         
                         // Log performance in debug mode
                         if (state.debugMode && perfStart) {
                             const elapsed = performance.now() - perfStart;
                             if (elapsed > 16) { // Only log if over 1 frame (16ms)
-                                console.log(`Scan took ${elapsed.toFixed(1)}ms`);
+                                console.log(`Scan took ${elapsed.toFixed(1)}ms (throttle: ${noQRCount > 5 ? 'slow' : 'fast'})`);
                             }
                         }
                         
                         scanning = false;
                     }
                     if (state.stream) {
-                        setTimeout(() => requestAnimationFrame(scan), SCAN_THROTTLE);
+                        requestAnimationFrame(scan);
                     }
                 };
                 
