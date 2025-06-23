@@ -1797,12 +1797,12 @@
                                 
                                 if (decompressed.t === 'o') {
                                     // We scanned an offer - keep camera running for Device 1 to scan our answer
-                                    processScannedOffer(code.data);
+                                    processScannedOffer(qrData);
                                     // Don't return - let scanning continue
                                     scanning = false;
                                 } else if (decompressed.t === 'a') {
                                     // We scanned an answer - connection complete
-                                    processAnswer(code.data);
+                                    processAnswer(qrData);
                                     scanning = false;
                                     return;
                                 }
