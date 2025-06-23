@@ -309,6 +309,7 @@
         const crcModule = await import(`./crc.js?v=${CACHE_VERSION}`);
         const base45Module = await import(`./base45-lib.js?v=${CACHE_VERSION}`);
         const qrLeanModule = await import(`./qr-lean.js?v=${CACHE_VERSION}`);
+        const leanQrBundled = await import(`./lean-qr-bundled.js?v=${CACHE_VERSION}`);
         
         const { compactSDP, expandSDP } = sdpModule;
         const { encodeWebRTCData, decodeWebRTCData } = asn1Module;

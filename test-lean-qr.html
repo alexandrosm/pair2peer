@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test lean-qr with Base45</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+        }
+        .test {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #333;
+        }
+        .qr-container {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #666;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test lean-qr with Base45</h1>
+    
+    <div class="test">
+        <h2>Test 1: Base64 vs Base45</h2>
+        <div id="test1-base64" class="qr-container">
+            <h3>Base64</h3>
+            <div id="qr1"></div>
+            <p id="info1"></p>
+        </div>
+        <div id="test1-base45" class="qr-container">
+            <h3>Base45</h3>
+            <div id="qr2"></div>
+            <p id="info2"></p>
+        </div>
+    </div>
+
+    <div class="test">
+        <h2>Test 2: Real WebRTC Data</h2>
+        <div id="test2-base64" class="qr-container">
+            <h3>Base64 (QRCode.js)</h3>
+            <div id="qr3"></div>
+            <p id="info3"></p>
+        </div>
+        <div id="test2-base45" class="qr-container">
+            <h3>Base45 (lean-qr)</h3>
+            <div id="qr4"></div>
+            <p id="info4"></p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script type="module">
+        import { base45Encode } from './base45-lib.js';
+        import { generateBase45QR } from './qr-lean.js';
+        
+        // Test data - simulate compressed WebRTC data
+        const testData = new Uint8Array(100);
+        for (let i = 0; i < testData.length; i++) {
+            testData[i] = Math.floor(Math.random() * 256);
+        }
+        
+        // Test 1: Compare encodings
+        const base64 = btoa(String.fromCharCode(...testData));
+        const base45 = base45Encode(testData);
+        
+        console.log('Test Data:', testData.length, 'bytes');
+        console.log('Base64:', base64.length, 'chars');
+        console.log('Base45:', base45.length, 'chars');
+        console.log('Base45 is alphanumeric:', /^[0-9A-Z $%*+\-./:]+$/.test(base45));
+        
+        // Generate Base64 QR with QRCode.js
+        const qr1 = document.getElementById('qr1');
+        new QRCode(qr1, {
+            text: base64,
+            width: 300,
+            height: 300,
+            correctLevel: QRCode.CorrectLevel.L,
+            colorDark: '#ffffff',
+            colorLight: '#000000'
+        });
+        
+        // Wait for QRCode.js to finish
+        setTimeout(() => {
+            const canvas1 = qr1.querySelector('canvas');
+            if (canvas1) {
+                const modules1 = Math.round(canvas1.width / (300 / canvas1.width));
+                const version1 = Math.round((modules1 - 21) / 4) + 1;
+                document.getElementById('info1').textContent = 
+                    `${base64.length} chars, QR v${version1} (${modules1}×${modules1})`;
+            }
+        }, 100);
+        
+        // Generate Base45 QR with lean-qr
+        await generateBase45QR(document.getElementById('qr2'), base45, {
+            width: 300,
+            colorDark: '#ffffff',
+            colorLight: '#000000'
+        });
+        
+        const canvas2 = document.getElementById('qr2').querySelector('canvas');
+        if (canvas2) {
+            // Get actual module count from lean-qr
+            const actualWidth = canvas2.width;
+            const actualHeight = canvas2.height;
+            const version2 = Math.round((actualWidth - 21) / 4) + 1;
+            document.getElementById('info2').textContent = 
+                `${base45.length} chars, QR v${version2} (${actualWidth}×${actualHeight})`;
+        }
+        
+        // Test 2: Real WebRTC-like data
+        const webrtcData = {
+            t: 'o',
+            u: 'test',
+            p: 'password123',
+            s: 'actpass',
+            f: 'AB:CD:EF:12:34:56:78:90',
+            c: ['192.168.1.100:54321,srflx', '10.0.0.1:12345,host']
+        };
+        
+        // Simulate compression
+        const jsonStr = JSON.stringify(webrtcData);
+        const jsonBytes = new TextEncoder().encode(jsonStr);
+        const compressedBase64 = btoa(String.fromCharCode(...jsonBytes));
+        const compressedBase45 = base45Encode(jsonBytes);
+        
+        console.log('\nWebRTC Data Test:');
+        console.log('JSON:', jsonStr.length, 'chars');
+        console.log('Base64:', compressedBase64.length, 'chars');
+        console.log('Base45:', compressedBase45.length, 'chars');
+        
+        // Generate comparison QRs
+        const qr3 = document.getElementById('qr3');
+        new QRCode(qr3, {
+            text: compressedBase64,
+            width: 300,
+            height: 300,
+            correctLevel: QRCode.CorrectLevel.L,
+            colorDark: '#ffffff',
+            colorLight: '#000000'
+        });
+        
+        setTimeout(() => {
+            const canvas3 = qr3.querySelector('canvas');
+            if (canvas3) {
+                const modules3 = Math.round(canvas3.width / (300 / canvas3.width));
+                const version3 = Math.round((modules3 - 21) / 4) + 1;
+                document.getElementById('info3').textContent = 
+                    `${compressedBase64.length} chars, QR v${version3} (${modules3}×${modules3})`;
+            }
+        }, 100);
+        
+        await generateBase45QR(document.getElementById('qr4'), compressedBase45, {
+            width: 300,
+            colorDark: '#ffffff',
+            colorLight: '#000000'
+        });
+        
+        const canvas4 = document.getElementById('qr4').querySelector('canvas');
+        if (canvas4) {
+            const actualWidth4 = canvas4.width;
+            const version4 = Math.round((actualWidth4 - 21) / 4) + 1;
+            document.getElementById('info4').textContent = 
+                `${compressedBase45.length} chars, QR v${version4} (${actualWidth4}×${actualWidth4})`;
+        }
+    </script>
+</body>
+</html>
