@@ -1,6 +1,5 @@
 // Service Worker for Pair2Peer
-const CACHE_VERSION = '2.2.5';
-const CACHE_NAME = `pair2peer-v${CACHE_VERSION}`;
+const CACHE_NAME = 'pair2peer-v2.2.5';
 const urlsToCache = [
   './',
   './index.html',
@@ -10,13 +9,15 @@ const urlsToCache = [
   './binary-codec.js',
   './crc.js',
   './base45-lib.js',
+  './qr-lean.js',
+  './lean-qr-bundled.js',
   './manifest.json',
   './favicon.ico'
 ];
 
 // Install event - cache assets
 self.addEventListener('install', event => {
-  console.log('[SW] Installing service worker version:', CACHE_VERSION);
+  console.log('[SW] Installing service worker version:', CACHE_NAME);
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -36,7 +37,7 @@ self.addEventListener('install', event => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating service worker version:', CACHE_VERSION);
+  console.log('[SW] Activating service worker version:', CACHE_NAME);
   event.waitUntil(
     caches.keys()
       .then(cacheNames => {
@@ -140,7 +141,7 @@ self.addEventListener('message', event => {
   }
   
   if (event.data && event.data.type === 'GET_VERSION') {
-    event.ports[0].postMessage({ version: CACHE_VERSION });
+    event.ports[0].postMessage({ version: CACHE_NAME });
   }
 });
 
