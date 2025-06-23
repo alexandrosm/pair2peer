@@ -192,11 +192,11 @@ export function encodeWebRTCData(data) {
     }
     encoder.writeOctetString(new Uint8Array(fpBytes));
     
-    // Number of candidates (constrained to 0-10)
+    // Number of candidates (constrained to 0-20 for more flexibility)
     const candidates = data.c || [];
     console.log('ASN.1 encoder: Writing', candidates.length, 'candidates');
     console.log('ASN.1 encoder: Bit position before candidates count:', encoder.bits.length);
-    encoder.writeConstrainedInt(candidates.length, 0, 10);
+    encoder.writeConstrainedInt(candidates.length, 0, 20);
     console.log('ASN.1 encoder: Bit position after candidates count:', encoder.bits.length);
     
     // Encode each candidate
@@ -214,7 +214,7 @@ export function encodeWebRTCData(data) {
             const networkId = parseInt(parts[2] || '1');
             encoder.writeIP(ip);
             encoder.writePort(parseInt(port));
-            encoder.writeConstrainedInt(networkId, 1, 10); // network-id typically 1-10
+            encoder.writeConstrainedInt(networkId, 1, 20); // network-id range expanded
         } else if (type === 's') {
             const [ip1, port1] = parts[1].split(':');
             const [ip2, port2] = parts[2].split(':');
@@ -223,12 +223,12 @@ export function encodeWebRTCData(data) {
             encoder.writePort(parseInt(port1));
             encoder.writeIP(ip2);
             encoder.writePort(parseInt(port2));
-            encoder.writeConstrainedInt(networkId, 1, 10); // network-id typically 1-10
+            encoder.writeConstrainedInt(networkId, 1, 20); // network-id range expanded
         } else if (type === 'r') {
             const [ip, port] = parts[1].split(':');
             encoder.writeIP(ip);
             encoder.writePort(parseInt(port));
-            encoder.writeConstrainedInt(1, 1, 10); // default network-id 1 for relay
+            encoder.writeConstrainedInt(1, 1, 20); // default network-id 1 for relay
         }
     });
     
@@ -264,18 +264,8 @@ export function decodeWebRTCData(bytes) {
     
     // Candidates
     console.log('ASN.1 decoder: About to read number of candidates, bitPos:', decoder.bitPos);
-    const numCandidates = decoder.readConstrainedInt(0, 10);
-    console.log('ASN.1 decoder: Reading', numCandidates, 'candidates (should be 5 or less)');
-    if (numCandidates > 8) {
-        console.error('WARNING: Suspicious number of candidates:', numCandidates);
-        // Log the next few bytes to debug
-        const debugBytes = [];
-        const startPos = Math.floor(decoder.bitPos / 8) - 2;
-        for (let i = Math.max(0, startPos); i < Math.min(bytes.length, startPos + 6); i++) {
-            debugBytes.push(bytes[i].toString(16).padStart(2, '0'));
-        }
-        console.log('Bytes around candidate count:', debugBytes.join(' '));
-    }
+    const numCandidates = decoder.readConstrainedInt(0, 20);
+    console.log('ASN.1 decoder: Reading', numCandidates, 'candidates');
     const candidates = [];
     
     for (let i = 0; i < numCandidates; i++) {
@@ -303,19 +293,19 @@ export function decodeWebRTCData(bytes) {
         if (type === 'h') {
             const ip = decoder.readIP();
             const port = decoder.readPort();
-            const networkId = decoder.readConstrainedInt(1, 10);
+            const networkId = decoder.readConstrainedInt(1, 20);
             candidates.push(`h,${ip}:${port},${networkId}`);
         } else if (type === 's') {
             const ip1 = decoder.readIP();
             const port1 = decoder.readPort();
             const ip2 = decoder.readIP();
             const port2 = decoder.readPort();
-            const networkId = decoder.readConstrainedInt(1, 10);
+            const networkId = decoder.readConstrainedInt(1, 20);
             candidates.push(`s,${ip1}:${port1},${ip2}:${port2},${networkId}`);
         } else if (type === 'r') {
             const ip = decoder.readIP();
             const port = decoder.readPort();
-            const networkId = decoder.readConstrainedInt(1, 10);
+            const networkId = decoder.readConstrainedInt(1, 20);
             candidates.push(`r,${ip}:${port}`);
         }
     }
