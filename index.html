@@ -473,7 +473,11 @@
                         return null;
                     }
                 } else {
-                    console.error('Invalid data type:', typeof data);
+                    // Only log once to avoid spam
+                    if (!window._invalidDataTypeLogged) {
+                        console.error('Invalid data type:', typeof data, 'value:', data);
+                        window._invalidDataTypeLogged = true;
+                    }
                     return null;
                 }
                 
@@ -2091,7 +2095,7 @@
                 // Clean up
                 pc.close();
                 
-                console.log('Pre-generated QR ready:', state.preGeneratedQR.length, 'chars');
+                console.log('Pre-generated QR ready:', state.preGeneratedQR.length, state.preGeneratedQR instanceof Uint8Array ? 'bytes' : 'chars');
             } catch (error) {
                 console.error('Pre-generation failed:', error);
             }
