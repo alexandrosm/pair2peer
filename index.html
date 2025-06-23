@@ -1757,8 +1757,9 @@
                             // Check if this is our own QR code (self-scan prevention)
                             // For binary, compare the actual bytes
                             if (state.currentQRData) {
-                                const isSelfScan = (qrData instanceof Uint8Array && state.currentQRData instanceof Uint8Array) ?
-                                    qrData.length === state.currentQRData.length && qrData.every((b, i) => b === state.currentQRData[i]) :
+                                const isBinaryQR = (data) => data instanceof Uint8Array || Array.isArray(data);
+                                const isSelfScan = (isBinaryQR(qrData) && isBinaryQR(state.currentQRData)) ?
+                                    qrData.length === state.currentQRData.length && Array.from(qrData).every((b, i) => b === state.currentQRData[i]) :
                                     qrData === state.currentQRData;
                                 
                                 if (isSelfScan) {
@@ -1773,7 +1774,7 @@
                             if (decompressed) {
                                 // Store the last processed QR to avoid duplicates
                                 // For binary data, use hex representation for key
-                                const qrKey = qrData instanceof Uint8Array ?
+                                const qrKey = (qrData instanceof Uint8Array || Array.isArray(qrData)) ?
                                     `${decompressed.t}-${Array.from(qrData.slice(0, 10)).map(b => b.toString(16).padStart(2, '0')).join('')}` :
                                     `${decompressed.t}-${qrData.substring(0, 20)}`;
                                 if (state.processedQRs && state.processedQRs.has(qrKey)) {
