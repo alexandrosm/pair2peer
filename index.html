@@ -1390,14 +1390,9 @@
                 const video = document.getElementById('video');
                 video.srcObject = state.stream;
                 
-                // Create smaller canvas for faster scanning
-                const SCAN_SIZE = 400;
                 const canvas = document.createElement('canvas');
-                canvas.width = SCAN_SIZE;
-                canvas.height = SCAN_SIZE;
                 const ctx = canvas.getContext('2d', { 
-                    willReadFrequently: true,
-                    alpha: false
+                    willReadFrequently: true
                 });
                 
                 let lastScanTime = 0;
@@ -1413,24 +1408,16 @@
                     if (video.readyState === video.HAVE_ENOUGH_DATA) {
                         lastScanTime = now;
                         
-                        // Draw scaled down image
-                        const videoAspect = video.videoWidth / video.videoHeight;
-                        let drawWidth = SCAN_SIZE;
-                        let drawHeight = SCAN_SIZE;
+                        // Use full resolution
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0);
                         
-                        if (videoAspect > 1) {
-                            drawHeight = SCAN_SIZE / videoAspect;
-                        } else {
-                            drawWidth = SCAN_SIZE * videoAspect;
-                        }
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                         
-                        ctx.drawImage(video, 0, 0, drawWidth, drawHeight);
-                        
-                        const imageData = ctx.getImageData(0, 0, drawWidth, drawHeight);
-                        
-                        // Try scanning - use faster settings
+                        // Try scanning with inversion
                         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                            inversionAttempts: 'dontInvert'
+                            inversionAttempts: 'attemptBoth'
                         })
                         
                         if (code) {
@@ -1478,14 +1465,9 @@
                 const video = document.getElementById('video-split');
                 video.srcObject = state.stream;
                 
-                // Create smaller canvas for faster scanning
-                const SCAN_SIZE = 400; // Scan at lower resolution for speed
                 const canvas = document.createElement('canvas');
-                canvas.width = SCAN_SIZE;
-                canvas.height = SCAN_SIZE;
                 const ctx = canvas.getContext('2d', { 
-                    willReadFrequently: true,
-                    alpha: false // Skip alpha channel for speed
+                    willReadFrequently: true
                 });
                 
                 let scanning = false;
@@ -1509,24 +1491,16 @@
                         // Measure performance only in debug mode
                         const perfStart = state.debugMode ? performance.now() : 0;
                         
-                        // Draw scaled down image for faster processing
-                        const videoAspect = video.videoWidth / video.videoHeight;
-                        let drawWidth = SCAN_SIZE;
-                        let drawHeight = SCAN_SIZE;
+                        // Use full resolution for better QR detection
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0);
                         
-                        if (videoAspect > 1) {
-                            drawHeight = SCAN_SIZE / videoAspect;
-                        } else {
-                            drawWidth = SCAN_SIZE * videoAspect;
-                        }
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                         
-                        ctx.drawImage(video, 0, 0, drawWidth, drawHeight);
-                        
-                        const imageData = ctx.getImageData(0, 0, drawWidth, drawHeight);
-                        
-                        // Try scanning - use faster settings
+                        // Try scanning with inversion for better reliability
                         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                            inversionAttempts: 'dontInvert' // Faster - only try normal image
+                            inversionAttempts: 'attemptBoth' // Try both normal and inverted
                         })
                         
                         if (code) {
