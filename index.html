@@ -794,10 +794,6 @@
                     console.log('Decoded candidates from QR:');
                     data.c.forEach((candidate, idx) => {
                         console.log(`  Candidate ${idx + 1}: ${candidate}`);
-                        // Check for unusual IPs
-                        if (candidate.includes('192.0.0.') || candidate.includes('0.0.0.')) {
-                            console.warn('Unusual IP detected in candidate:', candidate);
-                        }
                     });
                 }
                 
@@ -1471,16 +1467,6 @@
                                 return;
                             }
                             
-                            // Quick validation to avoid corrupted data
-                            const testDecompress = decompressData(code.data);
-                            if (testDecompress && testDecompress.c && testDecompress.c.length > 0) {
-                                const firstCandidate = testDecompress.c[0];
-                                if (firstCandidate && firstCandidate.includes('192.0.0.4')) {
-                                    console.log('Ignoring corrupted QR with invalid IP 192.0.0.4');
-                                    return;
-                                }
-                            }
-                            
                             stopCamera();
                             if (state.scanTarget === 'offer') {
                                 processOffer(code.data);
@@ -1579,15 +1565,6 @@
                             // Determine what type of data we scanned
                             const decompressed = decompressData(code.data);
                             if (decompressed) {
-                                // Validate the decompressed data
-                                if (decompressed.c && decompressed.c.length > 0) {
-                                    const firstCandidate = decompressed.c[0];
-                                    if (firstCandidate && firstCandidate.includes('192.0.0.4')) {
-                                        console.log('Ignoring corrupted QR with invalid IP 192.0.0.4');
-                                        scanning = false;
-                                        return;
-                                    }
-                                }
                                 // Store the last processed QR to avoid duplicates
                                 const qrKey = `${decompressed.t}-${code.data.substring(0, 20)}`;
                                 if (state.processedQRs && state.processedQRs.has(qrKey)) {
