@@ -1392,7 +1392,7 @@
                 
                 // Simple canvas setup
                 const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 
                 let lastScanTime = 0;
                 let noQRCount = 0;
@@ -1437,6 +1437,16 @@
                                 return;
                             }
                             
+                            // Quick validation to avoid corrupted data
+                            const testDecompress = decompressData(code.data);
+                            if (testDecompress && testDecompress.c && testDecompress.c.length > 0) {
+                                const firstCandidate = testDecompress.c[0];
+                                if (firstCandidate && firstCandidate.includes('192.0.0.4')) {
+                                    console.log('Ignoring corrupted QR with invalid IP 192.0.0.4');
+                                    return;
+                                }
+                            }
+                            
                             stopCamera();
                             if (state.scanTarget === 'offer') {
                                 processOffer(code.data);
@@ -1479,7 +1489,7 @@
                 
                 // Simple canvas setup - let the browser optimize
                 const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 
                 let scanning = false;
                 let lastScanTime = 0;
@@ -1535,6 +1545,15 @@
                             // Determine what type of data we scanned
                             const decompressed = decompressData(code.data);
                             if (decompressed) {
+                                // Validate the decompressed data
+                                if (decompressed.c && decompressed.c.length > 0) {
+                                    const firstCandidate = decompressed.c[0];
+                                    if (firstCandidate && firstCandidate.includes('192.0.0.4')) {
+                                        console.log('Ignoring corrupted QR with invalid IP 192.0.0.4');
+                                        scanning = false;
+                                        return;
+                                    }
+                                }
                                 // Store the last processed QR to avoid duplicates
                                 const qrKey = `${decompressed.t}-${code.data.substring(0, 20)}`;
                                 if (state.processedQRs && state.processedQRs.has(qrKey)) {
