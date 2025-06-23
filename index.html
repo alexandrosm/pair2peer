@@ -40,6 +40,7 @@
                     <h1 class="text-2xl font-bold">Pair2Peer</h1>
                     <p class="text-xs text-gray-400" id="version-display-split">Loading...</p>
                     <p class="text-sm text-gray-400 mt-2" id="qr-type-label">Show your QR</p>
+                    <p class="text-xs text-gray-500" id="qr-info-display">QR: -- | Bits: --</p>
                     <div id="status" class="mt-2 p-2 rounded-lg bg-gray-900 text-gray-100 text-center text-sm">
                         Starting camera...
                     </div>
@@ -498,6 +499,14 @@
             document.querySelectorAll('.step-view').forEach(el => el.classList.add('hidden'));
             document.getElementById(`step-${step}`).classList.remove('hidden');
         }
+        
+        function updateQRInfo(type, bitCount) {
+            const qrInfo = document.getElementById('qr-info-display');
+            if (qrInfo) {
+                const typeStr = type === 'o' ? 'Offer' : type === 'a' ? 'Answer' : 'Unknown';
+                qrInfo.textContent = `QR: ${typeStr} | Bits: ${bitCount}`;
+            }
+        }
 
         function updateStatus(msg, type = 'info') {
             const el = document.getElementById('status');
@@ -595,6 +604,10 @@
                 const compressed = compressData(offerData);
                 console.log('Compressed offer:', compressed);
                 console.log('Compressed length:', compressed.length);
+                
+                // Update QR info display
+                const bitCount = compressed.length * 8; // Base64 chars to bits
+                updateQRInfo('o', bitCount);
                 
                 // Store current QR data for self-scan prevention
                 state.currentQRData = compressed;
@@ -747,6 +760,11 @@
                 const compressed = compressData(answerData);
                 // Store current QR data for self-scan prevention
                 state.currentQRData = compressed;
+                
+                // Update QR info display
+                const bitCount = compressed.length * 8;
+                updateQRInfo('a', bitCount);
+                
                 showQR(compressed, 'Step 2: Show to Device 1');
                 
             } catch (error) {
@@ -1761,6 +1779,10 @@
                 state.lastQRData = compressed;
                 // Store for self-scan prevention
                 state.currentQRData = compressed;
+                
+                // Update QR info display
+                const bitCount = compressed.length * 8;
+                updateQRInfo('o', bitCount);
                 
                 // Show split view with QR and camera
                 const qrDiv = document.getElementById('qr-display-split');
