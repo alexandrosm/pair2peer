@@ -47,7 +47,7 @@
                     <button id="debug-toggle-split" class="text-xs text-gray-500 hover:text-gray-300 mt-2">
                         ▶ Debug
                     </button>
-                    <div id="debug-options-split" class="hidden mt-2">
+                    <div id="debug-options-split" class="mt-2">
                         <button id="selftest-btn-split" class="text-xs bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded mr-2">
                             Test
                         </button>
@@ -72,6 +72,12 @@
                         </button>
                     </div>
                     <p class="text-center text-sm text-gray-400 mt-1">Scan their QR</p>
+                </div>
+                
+                <!-- Debug QR info -->
+                <div id="qr-debug-info" class="hidden mt-2 p-2 bg-gray-700 rounded text-xs text-gray-300">
+                    <p class="font-semibold mb-1">QR Debug Info:</p>
+                    <div id="qr-debug-content" class="font-mono"></div>
                 </div>
             </div>
 
@@ -769,14 +775,16 @@
                 const data = decompressData(compressedData);
                 if (!data || data.t !== 'o') throw new Error('Invalid offer');
                 
-                // Validate IP addresses aren't corrupted
+                // Log IP addresses for debugging
                 if (data.c && data.c.length > 0) {
-                    for (const candidate of data.c) {
-                        if (candidate.includes('192.0.0.4') || candidate.includes('0.0.0.')) {
-                            console.error('Corrupted IP detected in candidate:', candidate);
-                            throw new Error('QR data corrupted - please try again');
+                    console.log('Decoded candidates from QR:');
+                    data.c.forEach((candidate, idx) => {
+                        console.log(`  Candidate ${idx + 1}: ${candidate}`);
+                        // Check for unusual IPs
+                        if (candidate.includes('192.0.0.') || candidate.includes('0.0.0.')) {
+                            console.warn('Unusual IP detected in candidate:', candidate);
                         }
-                    }
+                    });
                 }
                 
                 console.log('Processing scanned offer (simultaneous mode):', data);
@@ -883,6 +891,33 @@
                 if (qrLabel) {
                     qrLabel.textContent = '📥 Answer QR (Device 2)';
                     qrLabel.className = 'text-sm font-semibold text-green-400 mt-2';
+                }
+                
+                // Debug: Show answer data
+                console.log('Answer data for QR:', answerData);
+                console.log('Answer candidates:', answerData.c);
+                console.log('Compressed answer length:', compressed.length);
+                
+                // Update debug info panel
+                const debugInfo = document.getElementById('qr-debug-info');
+                const debugContent = document.getElementById('qr-debug-content');
+                if (debugContent) {
+                    let html = `<strong>Type:</strong> Answer<br>`;
+                    html += `<strong>Compressed:</strong> ${compressed.length} chars<br>`;
+                    html += `<strong>Fingerprint:</strong> ${answerData.f ? answerData.f.substring(0, 16) + '...' : 'N/A'}<br>`;
+                    html += `<strong>Candidates:</strong> ${answerData.c ? answerData.c.length : 0}<br>`;
+                    
+                    if (answerData.c && answerData.c.length > 0) {
+                        html += '<br><strong>Candidate details:</strong><br>';
+                        answerData.c.forEach((c, i) => {
+                            html += `${i + 1}: ${c}<br>`;
+                        });
+                    }
+                    
+                    debugContent.innerHTML = html;
+                    if (debugInfo && state.debugMode) {
+                        debugInfo.classList.remove('hidden');
+                    }
                 }
                 
                 updateStatus('Answer generated - show QR to other device');
@@ -1675,6 +1710,33 @@
                 if (qrLabel) {
                     qrLabel.textContent = '📤 Offer QR (Device 1)';
                     qrLabel.className = 'text-sm font-semibold text-blue-400 mt-2';
+                }
+                
+                // Debug: Show offer data
+                console.log('Offer data for QR:', offerData);
+                console.log('Offer candidates:', offerData.c);
+                console.log('Compressed offer length:', compressed.length);
+                
+                // Update debug info panel
+                const debugInfo = document.getElementById('qr-debug-info');
+                const debugContent = document.getElementById('qr-debug-content');
+                if (debugContent) {
+                    let html = `<strong>Type:</strong> Offer<br>`;
+                    html += `<strong>Compressed:</strong> ${compressed.length} chars<br>`;
+                    html += `<strong>Fingerprint:</strong> ${offerData.f ? offerData.f.substring(0, 16) + '...' : 'N/A'}<br>`;
+                    html += `<strong>Candidates:</strong> ${offerData.c ? offerData.c.length : 0}<br>`;
+                    
+                    if (offerData.c && offerData.c.length > 0) {
+                        html += '<br><strong>Candidate details:</strong><br>';
+                        offerData.c.forEach((c, i) => {
+                            html += `${i + 1}: ${c}<br>`;
+                        });
+                    }
+                    
+                    debugContent.innerHTML = html;
+                    if (debugInfo && state.debugMode) {
+                        debugInfo.classList.remove('hidden');
+                    }
                 }
                 
                 // Set scan target based on role
