@@ -423,27 +423,24 @@
             const binary = encodeWebRTCData(obj);
             console.log('ASN.1 UPER encoded to', binary.length, 'bytes');
             
-            // Add CRC for error detection
-            const binaryWithCRC = addCRC(binary);
-            console.log('Added CRC, total size:', binaryWithCRC.length, 'bytes');
-            
             // Return binary data directly for QR code
-            console.log('Using binary mode for QR (no Base45)');
+            // No CRC needed - QR codes have built-in Reed-Solomon error correction
+            console.log('Using binary mode for QR (no Base45, no CRC)');
             
-            return binaryWithCRC;
+            return binary;
         }
 
         function decompressData(data) {
             try {
-                let bytesWithCRC;
+                let bytes;
                 
                 // Handle both binary (Uint8Array) and string inputs
                 if (data instanceof Uint8Array) {
                     // Direct binary data from QR code
                     console.log('Decompressing binary data:', data.length, 'bytes');
-                    bytesWithCRC = data;
+                    bytes = data;
                 } else if (typeof data === 'string') {
-                    // Legacy Base45 string support
+                    // Legacy Base45 string support (may include CRC from old versions)
                     console.log('Decompressing Base45 string:', data.substring(0, 50) + '...');
                     console.log('String length:', data.length);
                     
@@ -454,7 +451,22 @@
                     
                     // Decode from Base45
                     try {
-                        bytesWithCRC = base45Decode(data);
+                        const decoded = base45Decode(data);
+                        // Check if this has legacy CRC (last 2 bytes)
+                        // Try to verify CRC if present, but don't fail if not
+                        if (decoded.length > 2) {
+                            const crcResult = verifyCRC(decoded);
+                            if (crcResult && crcResult.valid) {
+                                console.log('Legacy CRC detected and verified');
+                                bytes = crcResult.data;
+                            } else {
+                                // Assume no CRC or ignore failed CRC
+                                console.log('No CRC or using QR error correction');
+                                bytes = decoded;
+                            }
+                        } else {
+                            bytes = decoded;
+                        }
                     } catch (e) {
                         console.error('Base45 decode error:', e);
                         console.error('Invalid base45 string:', data);
@@ -465,20 +477,11 @@
                     return null;
                 }
                 
-                console.log('Data to verify:', bytesWithCRC.length, 'bytes (including CRC)');
-                
-                // Verify CRC
-                const crcResult = verifyCRC(bytesWithCRC);
-                if (!crcResult.valid) {
-                    console.error('❌ CRC check failed! Data is corrupted');
-                    updateStatus('QR code corrupted! Please try again', 'error');
-                    return null;
-                }
-                console.log('✅ CRC check passed');
-                
-                const bytes = crcResult.data;
-                console.log('Data size after CRC removal:', bytes.length, 'bytes');
+                console.log('Data size:', bytes.length, 'bytes');
                 console.log('First 10 bytes:', Array.from(bytes.slice(0, 10)));
+                
+                // No CRC verification needed for binary - QR codes have built-in error correction
+                // If we got here, the QR code's Reed-Solomon error correction already validated the data
                 
                 // Decode ASN.1 UPER format
                 const decoded = decodeWebRTCData(bytes);
