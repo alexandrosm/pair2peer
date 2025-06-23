@@ -500,12 +500,87 @@
             document.getElementById(`step-${step}`).classList.remove('hidden');
         }
         
-        function updateQRInfo(type, bitCount) {
+        function updateQRInfo(type, dataStr) {
             const qrInfo = document.getElementById('qr-info-display');
             if (qrInfo) {
                 const typeStr = type === 'o' ? 'Offer' : type === 'a' ? 'Answer' : 'Unknown';
-                qrInfo.textContent = `QR: ${typeStr} | Bits: ${bitCount}`;
+                
+                // Calculate data bits
+                const dataBits = dataStr.length * 8;
+                
+                // Calculate QR version and capacity
+                const qrVersion = getQRVersion(dataStr, 'L');
+                const qrModules = 21 + (qrVersion - 1) * 4; // modules per side
+                const totalModules = qrModules * qrModules;
+                
+                // Calculate actual QR data capacity for this version
+                const qrCapacity = getQRCapacity(qrVersion, 'L');
+                
+                qrInfo.textContent = `${typeStr} | ${dataBits}b data | QR v${qrVersion} (${qrModules}×${qrModules}) ${qrCapacity}b`;
             }
+        }
+        
+        // Calculate minimum QR version needed for data
+        function getQRVersion(data, errorCorrection) {
+            const dataLength = data.length;
+            
+            // QR capacity table for error correction level L (7% recovery)
+            // Format: [numeric, alphanumeric, byte, kanji]
+            const capacities = [
+                [41, 25, 17, 10],      // Version 1
+                [77, 47, 32, 20],      // Version 2
+                [127, 77, 53, 32],     // Version 3
+                [187, 114, 78, 48],    // Version 4
+                [255, 154, 106, 65],   // Version 5
+                [322, 195, 134, 82],   // Version 6
+                [370, 224, 154, 95],   // Version 7
+                [461, 279, 192, 118],  // Version 8
+                [552, 335, 230, 141],  // Version 9
+                [652, 395, 271, 167],  // Version 10
+                [772, 468, 321, 198],  // Version 11
+                [883, 535, 367, 226],  // Version 12
+                [1022, 619, 425, 262], // Version 13
+                [1101, 667, 458, 282], // Version 14
+                [1250, 758, 520, 320], // Version 15
+                [1408, 854, 586, 361], // Version 16
+                [1548, 938, 644, 397], // Version 17
+                [1725, 1046, 718, 442], // Version 18
+                [1903, 1153, 792, 488], // Version 19
+                [2061, 1249, 858, 528], // Version 20
+            ];
+            
+            // We're using byte mode for Base64 data
+            const byteIndex = 2;
+            
+            for (let v = 0; v < capacities.length; v++) {
+                if (dataLength <= capacities[v][byteIndex]) {
+                    return v + 1;
+                }
+            }
+            
+            // If we get here, data is too large even for version 20
+            return 20;
+        }
+        
+        // Get QR capacity in bits for a given version and error correction
+        function getQRCapacity(version, errorCorrection) {
+            // Calculate total modules in QR code
+            const modules = 21 + (version - 1) * 4;
+            const totalModules = modules * modules;
+            
+            // Function pattern modules (finder patterns, timing patterns, etc.)
+            // This is approximate but good enough for display
+            const functionModules = 200 + version * 25;
+            
+            // Format and version info modules
+            const formatModules = 31 + (version >= 7 ? 36 : 0);
+            
+            // Data modules
+            const dataModules = totalModules - functionModules - formatModules;
+            
+            // For byte mode at error correction level L
+            // Each module = 1 bit, 8 modules = 1 byte
+            return dataModules;
         }
 
         function updateStatus(msg, type = 'info') {
@@ -606,8 +681,7 @@
                 console.log('Compressed length:', compressed.length);
                 
                 // Update QR info display
-                const bitCount = compressed.length * 8; // Base64 chars to bits
-                updateQRInfo('o', bitCount);
+                updateQRInfo('o', compressed);
                 
                 // Store current QR data for self-scan prevention
                 state.currentQRData = compressed;
@@ -762,8 +836,7 @@
                 state.currentQRData = compressed;
                 
                 // Update QR info display
-                const bitCount = compressed.length * 8;
-                updateQRInfo('a', bitCount);
+                updateQRInfo('a', compressed);
                 
                 showQR(compressed, 'Step 2: Show to Device 1');
                 
@@ -1781,8 +1854,7 @@
                 state.currentQRData = compressed;
                 
                 // Update QR info display
-                const bitCount = compressed.length * 8;
-                updateQRInfo('o', bitCount);
+                updateQRInfo('o', compressed);
                 
                 // Show split view with QR and camera
                 const qrDiv = document.getElementById('qr-display-split');
