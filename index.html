@@ -13,6 +13,16 @@
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
     <!-- Using Tailwind CDN for rapid prototyping. For production, consider building CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Make QR code fill container */
+        #qr-display-split canvas,
+        #qr-display-split img {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto !important;
+            height: auto !important;
+        }
+    </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
@@ -32,7 +42,9 @@
             <div id="step-device1-split" class="step-view hidden">
                 <!-- QR Code at very top -->
                 <div class="mb-3">
-                    <div id="qr-display-split" class="mx-auto mb-2 flex justify-center"></div>
+                    <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio: 4/3;">
+                        <div id="qr-display-split" class="absolute inset-0 flex items-center justify-center"></div>
+                    </div>
                 </div>
                 
                 <!-- All UI elements moved below QR -->
@@ -498,6 +510,20 @@
         function showStep(step) {
             document.querySelectorAll('.step-view').forEach(el => el.classList.add('hidden'));
             document.getElementById(`step-${step}`).classList.remove('hidden');
+        }
+        
+        function getQRSize() {
+            // Calculate optimal QR size based on container
+            const container = document.getElementById('qr-display-split');
+            if (container && container.parentElement) {
+                const parent = container.parentElement;
+                // Get the smaller dimension to ensure QR fits in 4:3 aspect ratio
+                const width = parent.offsetWidth;
+                const height = parent.offsetHeight;
+                const size = Math.min(width, height) || 400;
+                return Math.min(size, 400); // Cap at 400 for performance
+            }
+            return 400; // Default size
         }
         
         function updateQRInfo(type, dataStr) {
@@ -978,10 +1004,11 @@
                 
                 const qrDiv = document.getElementById('qr-display-split');
                 qrDiv.innerHTML = '';
+                const qrSize = getQRSize();
                 new QRCode(qrDiv, {
                     text: compressed,
-                    width: 240,
-                    height: 240,
+                    width: qrSize,
+                    height: qrSize,
                     correctLevel: QRCode.CorrectLevel.L,
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#000000'  // Black background
@@ -1056,8 +1083,8 @@
             try {
                 new QRCode(qrDiv, {
                     text: data,
-                    width: 320,
-                    height: 320,
+                    width: 400,
+                    height: 400,
                     correctLevel: QRCode.CorrectLevel.L,
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#000000'  // Black background
@@ -1859,10 +1886,11 @@
                 // Show split view with QR and camera
                 const qrDiv = document.getElementById('qr-display-split');
                 qrDiv.innerHTML = '';
+                const qrSize = getQRSize();
                 new QRCode(qrDiv, {
                     text: compressed,
-                    width: 240,
-                    height: 240,
+                    width: qrSize,
+                    height: qrSize,
                     correctLevel: QRCode.CorrectLevel.L,
                     colorDark: '#ffffff',  // White QR code
                     colorLight: '#000000'  // Black background
