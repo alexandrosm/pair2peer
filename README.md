@@ -50,6 +50,13 @@ For offline use, serve the files over HTTPS to enable PWA installation.
 - **Full support**: Chrome, Edge, Brave, Safari (iOS 15.4+)
 - **Scan-only**: Firefox (due to ImageCapture API limitations)
 
+## QR payload encoding (v3)
+
+Offers and answers are packed by `sdp-codec-v3.js` (see `lab/v3-codec/` for tests and measurements):
+a typical offer with one local candidate is 58 bytes instead of 72 (85 → 63 with a public-address
+candidate), and `.local` (mDNS) candidates are now encoded correctly instead of corrupting the payload.
+The format is not compatible with v2 (ASN.1 UPER): both devices need the same app version.
+
 ## Security
 
 - All connections are end-to-end encrypted via WebRTC DTLS

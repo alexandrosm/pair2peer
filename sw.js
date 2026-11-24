@@ -5,6 +5,7 @@ const urlsToCache = [
   './index.html',
   './version.js',
   './sdp-compact.js',
+  './sdp-codec-v3.js',
   './asn1-uper-codec.js',
   './binary-codec.js',
   './crc.js',
