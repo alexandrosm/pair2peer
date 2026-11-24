@@ -1,0 +1,14 @@
+{
+  "name": "pair2peer-v3-codec-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "unit": "node unit.mjs",
+    "sizes": "node sizes.mjs",
+    "chrome": "node harness.mjs appPath && node harness.mjs v3Tiers"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^24.0.0",
+    "qrcode": "^1.5.4"
+  }
+}

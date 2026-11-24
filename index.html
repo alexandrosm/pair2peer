@@ -316,7 +316,7 @@
         
         // Import functions from modules with dynamic version
         const sdpModule = await import(`./sdp-compact.js?v=${CACHE_VERSION}`);
-        const asn1Module = await import(`./asn1-uper-codec.js?v=${CACHE_VERSION}`);
+        const asn1Module = await import(`./sdp-codec-v3.js?v=${CACHE_VERSION}`); // v3 bit-packed codec, same interface as asn1-uper-codec.js
         const crcModule = await import(`./crc.js?v=${CACHE_VERSION}`);
         const base45Module = await import(`./base45-lib.js?v=${CACHE_VERSION}`);
         const qrLeanModule = await import(`./qr-lean.js?v=${CACHE_VERSION}`);
@@ -397,7 +397,7 @@
         console.log(`%cPair2Peer v${VERSION}`, 'font-size: 16px; font-weight: bold; color: #1e40af;');
         console.log(`Build: ${BUILD_DATE}`);
         console.log(`Commit: ${GIT_COMMIT}`);
-        console.log(`Encoding: ASN.1 UPER + Base45`);
+        console.log(`Encoding: v3 bit-packed (binary QR)`);
         console.log('---');
         
         // Helper function to format time ago
@@ -424,9 +424,9 @@
 
         // Compression utilities
         function compressData(obj) {
-            // Use ASN.1 UPER encoding
+            // v3 bit-packed encoding (sdp-codec-v3.js)
             const binary = encodeWebRTCData(obj);
-            console.log('ASN.1 UPER encoded to', binary.length, 'bytes');
+            console.log('v3 encoded to', binary.length, 'bytes');
             
             // Return binary data directly for QR code
             // No CRC needed - QR codes have built-in Reed-Solomon error correction
@@ -515,9 +515,9 @@
                 // No CRC verification needed for binary - QR codes have built-in error correction
                 // If we got here, the QR code's Reed-Solomon error correction already validated the data
                 
-                // Decode ASN.1 UPER format
+                // Decode v3 format
                 const decoded = decodeWebRTCData(bytes);
-                console.log('ASN.1 UPER decoded:', decoded);
+                console.log('v3 decoded:', decoded);
                 
                 return decoded;
             } catch (error) {
@@ -1202,7 +1202,7 @@
             const qrSize = data.length;
             const qrBits = Math.ceil(qrSize * 8); // Base64 uses 8 bits per char in QR
             
-            document.getElementById('qr-size').textContent = `${qrSize} (${binarySize} bytes UPER)`;
+            document.getElementById('qr-size').textContent = `${qrSize} (${binarySize} bytes v3)`;
             document.getElementById('compression-ratio').textContent = 
                 Math.round((1 - qrBits / 7744) * 100); // vs original ~1KB
             
@@ -2435,7 +2435,7 @@
                     p: 'TestPassword123456789012',
                     f: '01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF',
                     s: 'a',
-                    c: ['h,192.168.1.100:12345,1', 's,10.0.0.1:54321,203.0.113.1:3478,1']
+                    c: ['h,192.168.1.100:12345,1', 's,203.0.113.1:54321,0.0.0.0:0,1'] // v3 drops network-id and srflx raddr/rport
                 };
                 
                 console.log('Test data:', testData);
